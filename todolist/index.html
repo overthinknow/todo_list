@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="app-header">
+            <div class="header-top">
+                <h1>Todo List</h1>
+                <button class="theme-toggle" id="themeToggle" aria-label="切换主题">
+                    <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="subtitle" id="dateDisplay"></p>
+        </header>
+
+        <!-- 添加任务 -->
+        <div class="add-task">
+            <div class="input-wrapper">
+                <input type="text" id="taskInput" placeholder="添加新任务..." autofocus>
+                <button id="addBtn" class="add-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="category-selector">
+                <button class="cat-btn active" data-category="all">全部</button>
+                <button class="cat-btn" data-category="personal">个人</button>
+                <button class="cat-btn" data-category="work">工作</button>
+                <button class="cat-btn" data-category="shopping">购物</button>
+                <button class="cat-btn" data-category="other">其他</button>
+            </div>
+        </div>
+
+        <!-- 过滤器 -->
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="active">进行中</button>
+            <button class="filter-btn" data-filter="completed">已完成</button>
+        </div>
+
+        <!-- 任务列表 -->
+        <div class="task-list" id="taskList">
+            <div class="empty-state" id="emptyState">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                    <rect x="9" y="3" width="6" height="4" rx="1"/>
+                    <path d="M9 14l2 2 4-4"/>
+                </svg>
+                <p id="emptyText">还没有任务，添加一个吧！</p>
+            </div>
+            <ul id="taskListItems"></ul>
+        </div>
+
+        <!-- 底部统计 -->
+        <footer class="app-footer" id="appFooter">
+            <span id="taskCount">0 项任务</span>
+            <button class="clear-btn" id="clearCompleted">清除已完成</button>
+        </footer>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>编辑任务</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <input type="text" id="editInput" class="modal-input">
+            <div class="modal-actions">
+                <button class="btn-cancel" id="modalCancel">取消</button>
+                <button class="btn-save" id="modalSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
