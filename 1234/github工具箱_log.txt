@@ -1,0 +1,25 @@
+[2026-07-11 23:22:28] 配置已保存: repo=overthinknow/todo_list, branch=main
+[2026-07-11 23:33:14] 配置已保存: repo=overthinknow/todo_list, branch=main
+[2026-07-11 23:33:57] 配置已保存: repo=overthinknow/da, branch=main
+[2026-07-11 23:40:59] 配置已保存: repo=overthinknow/todo_list, branch=main
+[2026-07-11 23:45:25] 克隆失败: overthinknow/daily-experience -> fatal: destination path 'C:\Users\qwe\Desktop' already exists and is not an empty directory.
+[2026-07-11 23:50:34] 克隆成功: overthinknow/daily-experience -> C:\Users\qwe\Desktop\daily-experience
+[2026-07-11 23:51:05] 配置已保存: repo=overthinknow/todo_list, branch=main
+[2026-07-11 23:55:04] 配置已保存: repo=overthinknow/todo_list, branch=main
+[2026-07-11 23:56:17] 克隆成功: overthinknow/daily-experience -> C:\Users\qwe\Desktop\daily-experience
+[2026-07-11 23:56:27] 配置已保存: repo=overthinknow/daily-experience, branch=main
+[2026-07-12 00:05:17] 配置已保存: repo=overthinknow/daily-experience, branch=main
+[2026-07-12 00:05:33] 上传失败: 没有成功复制任何文件
+[2026-07-12 00:05:35] 上传失败: 没有成功复制任何文件
+[2026-07-12 00:05:37] 上传失败: 没有成功复制任何文件
+[2026-07-12 00:05:44] 上传失败: 没有成功复制任何文件
+[2026-07-12 00:05:59] 批量删除成功: 1 项
+[2026-07-12 00:06:22] 上传失败: 没有成功复制任何文件
+[2026-07-12 00:08:49] 上传失败: 没有成功复制任何文件
+[2026-07-12 00:11:33] 上传成功: 1 个项目 -> overthinknow/daily-experience
+[2026-07-12 00:16:20] 上传成功: 2 个项目 -> overthinknow/daily-experience
+[2026-07-12 00:16:48] 批量删除成功: 3 项
+[2026-07-12 00:17:07] 配置已保存: repo=, branch=main
+[2026-07-12 00:27:06] 向导配置完成: repo=, path=C:\Users\qwe\Desktop\daily-experience
+[2026-07-12 00:31:56] 配置已保存: repo=overthinknow/todo_list, branch=main
+[2026-07-12 00:54:28] 批量删除成功: 18 项
