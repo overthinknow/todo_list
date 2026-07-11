@@ -23,3 +23,4 @@
 [2026-07-12 00:27:06] 向导配置完成: repo=, path=C:\Users\qwe\Desktop\daily-experience
 [2026-07-12 00:31:56] 配置已保存: repo=overthinknow/todo_list, branch=main
 [2026-07-12 00:54:28] 批量删除成功: 18 项
+[2026-07-12 00:54:55] 上传成功: 1 个项目 -> overthinknow/todo_list

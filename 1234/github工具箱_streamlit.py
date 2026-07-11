@@ -5,7 +5,7 @@ GitHub 工具箱 v2.0 — Streamlit 版
 美观交互 · 完整功能 · 可配置仓库 · 模块化扩展架构
 """
 
-import os, sys, json, subprocess, shutil, tempfile, time, textwrap, uuid
+import os, sys, json, base64, subprocess, shutil, tempfile, time, textwrap, uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -374,6 +374,44 @@ def page_home():
                 st.markdown(f"**{t}**  \n{d}", help="预留接口，待实现")
 
 
+def _add_folder_to_repo(path: str):
+    """将本地文件夹复制到仓库目录，以单条文件夹记录加入上传列表"""
+    path = path.strip().strip('"').strip("'")
+    if not path:
+        st.error("请输入文件夹路径。")
+        return
+    src = Path(path)
+    if not src.exists():
+        st.error(f"路径不存在: {path}")
+        return
+    if not src.is_dir():
+        st.error(f"'{src.name}' 不是文件夹。")
+        return
+
+    repo_dir = Path(st.session_state.cfg["repo_dir"])
+    dest = repo_dir / src.name
+
+    try:
+        if dest.exists():
+            for f in src.rglob("*"):
+                if f.is_file():
+                    rel = f.relative_to(src)
+                    target = dest / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, target)
+        else:
+            shutil.copytree(src, dest, dirs_exist_ok=True)
+
+        # 只添加文件夹本身（单条记录），不展开内部文件
+        folder_marker = f"__FOLDER__::{dest}"
+        if folder_marker not in st.session_state.upload_paths and str(dest) not in st.session_state.upload_paths:
+            st.session_state.upload_paths.append(str(dest))
+        st.success(f"✅ 已添加文件夹 '{src.name}'")
+        st.rerun()
+    except Exception as e:
+        st.error(f"复制文件夹失败: {e}")
+
+
 def page_upload():
     cfg = st.session_state.cfg
     if not check_repo(cfg["repo_dir"]):
@@ -386,13 +424,22 @@ def page_upload():
             if st.button("🏠 返回首页"): st.session_state.page = "首页"; st.rerun()
         return
 
-    st.markdown("## 📤 上传文件到 GitHub")
+    st.markdown("## 📤 上传到 GitHub")
     st.markdown(f'<span class="badge badge-info">📦 {cfg["github_repo"]} / {cfg["branch"]}</span>', unsafe_allow_html=True)
     st.markdown("---")
 
-    # 方式一：文件上传器
-    st.markdown("##### 📎 选择文件（浏览器上传）")
-    uploaded = st.file_uploader("选择文件上传", accept_multiple_files=True, label_visibility="collapsed", key="fu_main")
+    # 拖拽上传区 — 文件可直接拖拽到此区域
+    st.markdown(
+        '<div style="background:#fff;border:2px dashed #0d6efd;border-radius:14px;padding:32px 20px;'
+        'text-align:center;margin-bottom:16px;">'
+        '<div style="font-size:42px;margin-bottom:8px;">📥</div>'
+        '<div style="font-size:16px;font-weight:600;color:#333;">拖拽文件到此处上传</div>'
+        '<div style="font-size:13px;color:#999;margin-top:4px;">支持多选文件 · 文件夹请在下方输入路径</div>'
+        '</div>',
+        unsafe_allow_html=True)
+    uploaded = st.file_uploader(
+        "拖拽或选择文件", accept_multiple_files=True,
+        label_visibility="collapsed", key="fu_main")
     if uploaded and not st.session_state.get("upload_done", False):
         repo_dir = Path(cfg["repo_dir"])
         for f in uploaded:
@@ -406,33 +453,47 @@ def page_upload():
     elif uploaded and st.session_state.get("upload_done", False):
         pass
 
-    # 方式二：本地路径（支持文件夹）
     st.markdown("---")
-    st.markdown("##### 📂 指定本地路径（支持文件夹）")
-    col_path, col_add = st.columns([3, 1])
+    # 文件夹输入区
+    st.markdown("##### 📁 添加整个文件夹")
+    col_path, col_add = st.columns([4, 1])
     with col_path:
-        local_path = st.text_input("本地文件或文件夹路径", placeholder="C:\\Users\\...\\myfile.txt 或 C:\\...\\myfolder", label_visibility="collapsed", key="local_path_input")
+        folder_src = st.text_input(
+            "文件夹路径", placeholder="C:\\Users\\...\\myfolder",
+            label_visibility="collapsed", key="folder_src_input",
+            help="输入本地文件夹的完整路径，将整个文件夹复制到仓库")
     with col_add:
-        if st.button("➕ 添加到列表", use_container_width=True):
-            _add_local_path(local_path)
+        if st.button("📁 添加", use_container_width=True):
+            _add_folder_to_repo(folder_src)
 
     paths = st.session_state.upload_paths
     st.markdown(f"---\n##### 📋 待上传列表 ({len(paths)} 项)")
     if paths:
         for i, p in enumerate(paths):
-            is_dir = os.path.isdir(p)
+            sp = Path(p)
+            is_dir = sp.is_dir()
+            size_display = ""
+            if is_dir:
+                # 统计文件夹内的文件数
+                try:
+                    file_count = sum(1 for f in sp.rglob("*") if f.is_file())
+                    size_display = f"📁 {file_count} 个文件"
+                except:
+                    size_display = "📁 文件夹"
+            else:
+                try:
+                    size_display = format_size(sp.stat().st_size)
+                except:
+                    size_display = "?"
             icon = "📁" if is_dir else "📄"
-            sz = ""
-            try: sz = format_size(os.path.getsize(p)) if not is_dir else ""
-            except: sz = "?"
             cols = st.columns([5, 1, 1, 1])
             with cols[0]:
                 st.markdown(
                     f'<div style="display:flex;align-items:center;gap:8px;"><span>{icon}</span> '
-                    f'<strong>{Path(p).name}</strong> '
+                    f'<strong>{sp.name}</strong> '
                     f'<span style="color:#999;font-size:12px;margin-left:8px;">{short_path(p, 45)}</span></div>',
                     unsafe_allow_html=True)
-            with cols[1]: st.caption(sz if sz else ("📁文件夹" if is_dir else ""))
+            with cols[1]: st.caption(size_display)
             with cols[2]: st.caption("待上传")
             with cols[3]:
                 if st.button("✕", key=f"rm_up_{i}", help="移除"):
@@ -440,134 +501,103 @@ def page_upload():
 
         st.markdown("---")
         commit_msg = st.text_input("提交信息（可选）", placeholder="留空自动生成", key="commit_msg")
+
+        # 进度条
+        progress_bar = st.progress(0, text="准备上传...")
+        status_text = st.empty()
+
         col_b1, col_b2 = st.columns(2)
         with col_b1:
             if st.button("🚀 开始上传", type="primary", use_container_width=True):
-                with st.status("⏳ 正在上传...", expanded=True) as status:
-                    st.write("📁 复制文件到本地仓库...")
-                    result = _do_upload(paths, cfg, commit_msg.strip())
-                    if result["success"]:
-                        status.update(label="✅ 上传成功！", state="complete")
-                    else:
-                        status.update(label="❌ 上传失败", state="error")
-                    for line in result.get("details", []): st.write(line)
+                progress_bar.progress(5, text="📁 复制文件到仓库...")
+                result = _do_upload(paths, cfg, commit_msg.strip(), progress_bar, status_text)
                 if result["success"]:
+                    progress_bar.progress(100, text="✅ 上传成功！")
                     st.success(result["message"])
                     st.session_state.upload_paths = []
                     st.session_state.upload_done = True
+                    for line in result.get("details", []): status_text.write(line)
                     st.rerun()
                 else:
+                    progress_bar.progress(100, text="❌ 上传失败")
                     st.error(result["message"])
+                    for line in result.get("details", []): status_text.write(line)
         with col_b2:
             if st.button("🗑️ 清空列表", use_container_width=True):
                 st.session_state.upload_paths = []; st.session_state.upload_done = False; st.rerun()
     else:
-        st.info("💡 请通过上方区域选择要上传的文件。")
+        st.info("💡 选择文件或输入文件夹路径添加到上传列表。")
         st.session_state.upload_done = False
 
 
-def _do_upload(paths: list[str], cfg: dict, commit_msg: str = "") -> dict:
+def _do_upload(paths: list[str], cfg: dict, commit_msg: str = "",
+               progress_bar=None, status_text=None) -> dict:
     """
-    执行上传：
-    1. 将 paths 中的文件/文件夹复制到仓库目录（类似原批处理脚本）
-    2. git add . → git commit → git push
-    3. 如启用清理，则删除本地副本
+    执行上传（文件已在仓库目录中）：
+    1. 验证文件存在 → 2. git add → 3. git commit → 4. git push
+    进度条：0-30 验证 → 30-55 add → 55-75 commit → 75-95 push → 95-100 完成
     """
+    def update(progress, text):
+        if progress_bar is not None:
+            progress_bar.progress(progress, text=text)
+        if status_text is not None:
+            status_text.write(text)
+
     repo_dir = cfg["repo_dir"]
-    list_file = os.path.join(tempfile.gettempdir(), f"ul_{uuid.uuid4().hex[:8]}.txt")
     details = []; item_count = 0; errors = []
 
+    update(5, "📁 验证文件...")
     for src in paths:
         sp = Path(src)
-        if not sp.exists():
-            errors.append(f"跳过（不存在）: {src}")
-            continue
-        dest = Path(repo_dir) / sp.name
-        try:
-            if sp.is_dir():
-                if dest.exists():
-                    for f in sp.rglob("*"):
-                        if f.is_file():
-                            rel = f.relative_to(sp)
-                            target = dest / rel
-                            target.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(f, target)
-                else:
-                    shutil.copytree(sp, dest, dirs_exist_ok=True)
-            else:
-                shutil.copy2(sp, dest)
-            with open(list_file, "a", encoding="utf-8") as lf:
-                lf.write(sp.name + "\n")
+        if sp.exists():
             item_count += 1
-            details.append(f"✅ 已复制: {sp.name}")
-        except Exception as e:
-            errors.append(f"复制 {sp.name} 失败: {e}")
+            details.append(f"✅ {sp.name}")
+        else:
+            errors.append(f"跳过（不存在）: {src}")
 
     if item_count == 0:
-        log_msg("上传失败: 没有成功复制任何文件")
-        return {"success": False, "message": "没有成功复制任何文件。", "details": details + errors}
+        log_msg("上传失败: 没有找到待上传的文件")
+        return {"success": False, "message": "没有找到待上传的文件。", "details": details + errors}
 
-    details.append("📌 git add...")
+    # 检查是否有实际变更
+    update(15, "🔍 检查变更...")
+    ok_dirty, out_dirty, _ = run_git(["git", "status", "--porcelain"], repo_dir)
+    if ok_dirty and not out_dirty.strip():
+        log_msg("无变更，跳过提交")
+        return {"success": True, "message": "所有文件已存在且内容相同，无需提交。", "details": details + ["ℹ️ 无变更"]}
+
+    update(30, "📌 git add...")
     ok, out, err = run_git(["git", "add", "."], repo_dir)
     if not ok:
         log_msg(f"git add 失败: {err}")
         return {"success": False, "message": f"git add 失败: {err}", "details": details + [f"❌ {err}"]}
 
+    update(55, f"📌 git commit...")
     msg = commit_msg or f"上传 {item_count} 个文件"
     details.append(f"📌 git commit -m \"{msg}\"")
     run_git(["git", "commit", "-m", msg], repo_dir)
 
-    details.append("📤 git push...")
-    ok, out, err = run_git(["git", "push", "origin", cfg["branch"]], repo_dir, timeout=120)
+    update(75, "📤 git push...")
+    # 带重试（最多 3 次）
+    for attempt in range(3):
+        ok, out, err = run_git(["git", "push", "origin", cfg["branch"]], repo_dir, timeout=120)
+        if ok:
+            break
+        if attempt < 2:
+            update(75, f"📤 推送重试 ({attempt+1}/2)...")
+            time.sleep(2)
+
     if not ok:
         log_msg(f"推送失败: {err}")
         return {"success": False, "message": f"推送失败: {err}", "details": details + [f"❌ {err}"]}
 
-    # 清理本地副本（如启用，类似原批处理脚本）
-    if cfg.get("delete_local_copy", True) and os.path.exists(list_file):
-        with open(list_file, "r", encoding="utf-8") as f:
-            items = [line.strip() for line in f if line.strip()]
-        for item in items:
-            target = Path(repo_dir) / item
-            if target.exists():
-                try:
-                    if target.is_dir():
-                        shutil.rmtree(target)
-                    else:
-                        target.unlink()
-                except Exception:
-                    pass
-            run_git(["git", "checkout", "--", item], repo_dir)
-        try:
-            os.remove(list_file)
-        except Exception:
-            pass
-        details.append("🧹 本地副本已清理")
-
+    update(100, "✅ 完成！")
     log_msg(f"上传成功: {item_count} 个项目 -> {cfg['github_repo']}")
     msg = f"✅ 成功上传 {item_count} 个项目！"
     if errors:
         msg += "\n" + "\n".join(errors)
     return {"success": True, "message": msg, "details": details}
 
-
-def _add_local_path(path: str):
-    """将本地文件或文件夹路径添加到上传列表"""
-    path = path.strip().strip('"').strip("'")
-    if not path:
-        st.error("请输入有效的路径。")
-        return
-    p = Path(path)
-    if not p.exists():
-        st.error(f"路径不存在: {path}")
-        return
-    if str(p) not in st.session_state.upload_paths:
-        st.session_state.upload_paths.append(str(p))
-        kind = "文件夹" if p.is_dir() else "文件"
-        st.success(f"✅ 已添加{kind}: {p.name}")
-        st.rerun()
-    else:
-        st.info(f"已在列表中: {p.name}")
 
 
 def page_delete():
@@ -638,19 +668,49 @@ def page_delete():
         st.markdown(f"<div style='text-align:right;color:#888;font-size:13px;padding-top:4px;'>已选择 <strong>{len(selected)}</strong> 项</div>", unsafe_allow_html=True)
 
     kv = st.session_state.get("del_key_ver", 0)
-    for idx, item in enumerate(all_items):
-        is_checked = item["path"] in selected
-        checked = st.checkbox(
-            label=f'{"📁 " if item["is_dir"] else "📄 "}{item["name"]}  {item["size"]}  {item["mtime"]}',
-            value=is_checked,
-            key=f"cb_del_{kv}_{idx}",
-        )
-        if checked and item["path"] not in selected:
-            selected.append(item["path"])
-            st.session_state.delete_selected = selected
-        elif not checked and item["path"] in selected:
-            selected.remove(item["path"])
-            st.session_state.delete_selected = selected
+
+    # 分级渲染：用 expander 展示文件夹层级
+    def render_tree(path, level=0, parent_path=""):
+        items = []
+        try:
+            entries = sorted([p for p in path.iterdir() if not _skip(p.name)], key=lambda p: (not p.is_dir(), p.name.lower()))
+        except PermissionError:
+            return
+        global_idx = [0]  # mutable counter for unique keys
+
+        for entry in entries:
+            is_dir = entry.is_dir()
+            rel = (Path(parent_path) / entry.name).as_posix() if parent_path else entry.name
+            try:
+                stt = entry.stat(); size = stt.st_size
+                mtime = datetime.fromtimestamp(stt.st_mtime).strftime("%Y-%m-%d %H:%M")
+            except: size = 0; mtime = ""
+            size_str = format_size(size) if not is_dir else ""
+
+            if is_dir:
+                # 文件夹：用 expander
+                expanded_default = level < 1
+                with st.expander(f"📁 {entry.name}", expanded=expanded_default):
+                    render_tree(entry, level + 1, rel)
+            else:
+                # 文件：checkbox
+                idx = global_idx[0]
+                global_idx[0] += 1
+                is_checked = rel in selected
+                checked = st.checkbox(
+                    label=f"📄 {entry.name}  {size_str}  {mtime}",
+                    value=is_checked,
+                    key=f"cb_del_{kv}_{rel}",
+                )
+                if checked and rel not in selected:
+                    selected.append(rel)
+                    st.session_state.delete_selected = selected
+                elif not checked and rel in selected:
+                    selected.remove(rel)
+                    st.session_state.delete_selected = selected
+
+    # 直接从 repo_path 开始渲染
+    render_tree(repo_path)
 
     st.markdown("---")
     st.markdown(f"已选择 **{len(selected)}** 项")
@@ -675,9 +735,10 @@ def page_delete():
                 with st.status("⏳ 正在批量删除...", expanded=True) as status:
                     success_count = 0
                     fail_count = 0
+                    repo_path_obj = Path(cfg["repo_dir"])
                     for del_path in paths:
-                        is_dir = any(d["path"] == del_path and d["is_dir"] for d in all_items)
-                        full_path = Path(cfg["repo_dir"]) / del_path
+                        full_path = repo_path_obj / del_path
+                        is_dir = full_path.is_dir()
                         st.write(f"📌 删除: {del_path}")
 
                         # 先检查文件是否被 git 跟踪
