@@ -1,0 +1,3974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🍅 番茄全能 · 专注统计</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+  </script>
+  <style>
+    /* ================================================================
+       全局 CSS 变量 & 重置 (毛玻璃 & 动感动画)
+       ================================================================ */
+    :root {
+      --primary: #FF6B6B;
+      --primary-dark: #E55454;
+      --primary-light: #FFF0F0;
+      --secondary: #4ECDC4;
+      --secondary-light: #E8F8F6;
+      --accent: #FFB347;
+      --bg: #F4F6FA;
+      --card-bg: rgba(255, 255, 255, 0.60);
+      --card-border: rgba(255, 255, 255, 0.35);
+      --text: #1E2A3A;
+      --text-light: #5A6C7D;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+      --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.16);
+      --radius: 20px;
+      --radius-sm: 12px;
+      --transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      --nav-width: 80px;
+      --header-height: 68px;
+      --ring-bg: rgba(0, 0, 0, 0.08);
+      --ring-color: var(--primary);
+      --breath-color-start: rgba(255, 107, 107, 0.05);
+      --breath-color-end: rgba(255, 107, 107, 0.25);
+      --glass-blur: 16px;
+    }
+
+    [data-theme="dark"] {
+      --bg: #161A26;
+      --card-bg: rgba(30, 35, 50, 0.70);
+      --card-border: rgba(255, 255, 255, 0.06);
+      --text: #E8ECF4;
+      --text-light: #9AA4B8;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.6);
+      --ring-bg: rgba(255, 255, 255, 0.08);
+      --primary-light: #3A2A30;
+      --secondary-light: #1D3A3A;
+      --breath-color-start: rgba(255, 107, 107, 0.04);
+      --breath-color-end: rgba(255, 107, 107, 0.20);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      transition: background 0.6s ease, color 0.6s ease;
+      position: relative;
+    }
+
+    /* 动态背景层 - 毛玻璃底光 */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 20% 80%, var(--primary-light), transparent 55%),
+        radial-gradient(circle at 80% 20%, var(--secondary-light), transparent 55%);
+      opacity: 0.35;
+      transition: all 1.2s ease;
+      pointer-events: none;
+    }
+    body.state-focus::before {
+      opacity: 0.55;
+      background:
+        radial-gradient(circle at 30% 70%, var(--primary), transparent 45%),
+        radial-gradient(circle at 70% 30%, var(--secondary), transparent 45%);
+    }
+    body.state-break::before {
+      opacity: 0.45;
+      background:
+        radial-gradient(circle at 50% 50%, var(--accent), transparent 55%),
+        radial-gradient(circle at 30% 70%, var(--secondary-light), transparent 45%);
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 10px;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    /* ===== 侧边栏 ===== */
+    .sidebar {
+      width: var(--nav-width);
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-right: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 0;
+      flex-shrink: 0;
+      z-index: 10;
+      height: 100vh;
+      overflow-y: auto;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .sidebar .logo {
+      font-size: 34px;
+      margin-bottom: 32px;
+      cursor: default;
+      user-select: none;
+      transition: transform 0.3s ease;
+    }
+    .sidebar .logo:hover {
+      transform: scale(1.08) rotate(-4deg);
+    }
+    .sidebar .logo span {
+      display: block;
+      font-size: 10px;
+      color: var(--text-light);
+      letter-spacing: 2px;
+      text-align: center;
+      margin-top: 4px;
+      font-weight: 600;
+      opacity: 0.7;
+    }
+
+    .nav-items {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      width: 100%;
+      padding: 0 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 0;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      color: var(--text-light);
+      font-size: 11px;
+      border: none;
+      background: transparent;
+      width: 100%;
+      font-family: inherit;
+      gap: 2px;
+      position: relative;
+      font-weight: 500;
+    }
+    .nav-item .icon {
+      font-size: 24px;
+      line-height: 1.2;
+      transition: transform 0.3s ease;
+    }
+    .nav-item .label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.4px;
+      opacity: 0.8;
+    }
+    .nav-item::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: 4px;
+      width: 0;
+      height: 3px;
+      background: var(--primary);
+      border-radius: 4px;
+      transition: all 0.3s ease;
+      transform: translateX(-50%);
+    }
+    .nav-item:hover {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .nav-item:hover .icon {
+      transform: translateY(-2px) scale(1.1);
+    }
+    .nav-item.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.35);
+    }
+    .nav-item.active .label {
+      color: #fff;
+      opacity: 1;
+    }
+    .nav-item.active::after {
+      width: 30%;
+      background: #fff;
+    }
+    .nav-item.active .icon {
+      transform: scale(1.1);
+    }
+
+    /* ===== 主内容 ===== */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: transparent;
+      min-width: 0;
+    }
+
+    /* ===== 头部 ===== */
+    .header {
+      height: var(--header-height);
+      padding: 0 32px;
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .header .title {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header .title .sub {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-light);
+      opacity: 0.8;
+    }
+    .header .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .header .actions .date-display {
+      font-size: 14px;
+      color: var(--text-light);
+      background: var(--bg);
+      padding: 6px 18px;
+      border-radius: 30px;
+      font-weight: 500;
+      border: 1px solid var(--card-border);
+      transition: background 0.4s, color 0.4s;
+    }
+    .header .actions .theme-toggle {
+      background: var(--bg);
+      border: none;
+      border-radius: 30px;
+      padding: 6px 14px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(4px);
+    }
+    .header .actions .theme-toggle:hover {
+      transform: scale(1.1) rotate(12deg);
+      background: var(--primary-light);
+    }
+
+    /* ===== 通用按钮 ===== */
+    .btn {
+      padding: 8px 22px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 14px rgba(255, 107, 107, 0.25);
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.20), transparent);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .btn:hover::after {
+      opacity: 1;
+    }
+    .btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 10px 30px rgba(255, 107, 107, 0.35);
+    }
+    .btn:active {
+      transform: scale(0.95) translateY(0);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1.5px solid var(--card-border);
+      box-shadow: none;
+      backdrop-filter: blur(4px);
+    }
+    .btn-outline:hover {
+      background: var(--bg);
+      box-shadow: none;
+      transform: translateY(-2px);
+    }
+
+    .btn-sm {
+      padding: 4px 16px;
+      font-size: 12px;
+    }
+
+    .btn-secondary {
+      background: var(--secondary);
+      box-shadow: 0 4px 14px rgba(78, 205, 196, 0.25);
+    }
+    .btn-secondary:hover {
+      box-shadow: 0 10px 30px rgba(78, 205, 196, 0.35);
+    }
+
+    .btn-danger {
+      background: #EF4444;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
+    }
+    .btn-danger:hover {
+      box-shadow: 0 10px 30px rgba(239, 68, 68, 0.35);
+    }
+    .btn-success {
+      background: #10B981;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    }
+    .btn-success:hover {
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.35);
+    }
+
+    /* ===== 内容区 ===== */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px 40px;
+    }
+
+    .page {
+      display: none;
+      animation: fadeSlide 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .page.active {
+      display: block;
+    }
+
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ===== 卡片（毛玻璃） ===== */
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+      transition: all 0.4s ease;
+    }
+    .card:hover {
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+    }
+    .card-title .tag {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-light);
+      background: var(--bg);
+      padding: 2px 12px;
+      border-radius: 30px;
+      letter-spacing: 0.2px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ===== 网格 ===== */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* ===== 统计卡片 ===== */
+    .stat-card {
+      text-align: center;
+      padding: 20px 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+      backdrop-filter: blur(4px);
+    }
+    .stat-card:hover {
+      transform: translateY(-6px) scale(1.02);
+      border-color: var(--primary-light);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
+    }
+    .stat-card .stat-number {
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .stat-card .stat-number .unit {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-left: 4px;
+    }
+    .stat-card .stat-label {
+      font-size: 13px;
+      color: var(--text-light);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ===== 仪表盘环形 ===== */
+    .gauge-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+    .gauge-ring {
+      position: relative;
+      width: 120px;
+      height: 120px;
+    }
+    .gauge-ring svg {
+      transform: rotate(-90deg);
+    }
+    .gauge-ring .bg-circle {
+      fill: none;
+      stroke: var(--ring-bg);
+      stroke-width: 10;
+    }
+    .gauge-ring .progress-circle {
+      fill: none;
+      stroke: var(--ring-color);
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .gauge-ring .center-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .gauge-ring .center-label {
+      position: absolute;
+      top: 70%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      color: var(--text-light);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* ===== 日期导航 ===== */
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .date-nav .date-text {
+      font-size: 17px;
+      font-weight: 600;
+      min-width: 150px;
+      text-align: center;
+      color: var(--text);
+    }
+    .date-nav .arrow {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      cursor: pointer;
+      font-size: 20px;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .date-nav .arrow:hover {
+      background: var(--primary);
+      color: #fff;
+      transform: scale(1.12) rotate(6deg);
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.3);
+    }
+
+    /* ===== 记录列表 ===== */
+    .record-list {
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .record-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-size: 14px;
+      flex-wrap: wrap;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .record-item:hover {
+      background: var(--primary-light);
+      margin: 0 -8px;
+      padding-left: 8px;
+      padding-right: 8px;
+      border-radius: 8px;
+    }
+    .record-item .tag {
+      padding: 2px 14px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #fff;
+      display: inline-block;
+    }
+    .record-item .duration {
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .record-item .time {
+      color: var(--text-light);
+      font-size: 12px;
+    }
+
+    /* ===== 时段条形图 ===== */
+    .hour-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      animation: slideIn 0.5s ease backwards;
+    }
+    .hour-bar:nth-child(1) { animation-delay: 0.02s; }
+    .hour-bar:nth-child(2) { animation-delay: 0.04s; }
+    .hour-bar:nth-child(3) { animation-delay: 0.06s; }
+    .hour-bar:nth-child(4) { animation-delay: 0.08s; }
+    .hour-bar:nth-child(5) { animation-delay: 0.10s; }
+    .hour-bar:nth-child(6) { animation-delay: 0.12s; }
+    .hour-bar:nth-child(7) { animation-delay: 0.14s; }
+    .hour-bar:nth-child(8) { animation-delay: 0.16s; }
+    .hour-bar:nth-child(9) { animation-delay: 0.18s; }
+    .hour-bar:nth-child(10) { animation-delay: 0.20s; }
+    .hour-bar:nth-child(11) { animation-delay: 0.22s; }
+    .hour-bar:nth-child(12) { animation-delay: 0.24s; }
+    .hour-bar:nth-child(13) { animation-delay: 0.26s; }
+    .hour-bar:nth-child(14) { animation-delay: 0.28s; }
+    .hour-bar:nth-child(15) { animation-delay: 0.30s; }
+    .hour-bar:nth-child(16) { animation-delay: 0.32s; }
+    .hour-bar:nth-child(17) { animation-delay: 0.34s; }
+    .hour-bar:nth-child(18) { animation-delay: 0.36s; }
+    .hour-bar:nth-child(19) { animation-delay: 0.38s; }
+    .hour-bar:nth-child(20) { animation-delay: 0.40s; }
+    .hour-bar:nth-child(21) { animation-delay: 0.42s; }
+    .hour-bar:nth-child(22) { animation-delay: 0.44s; }
+    .hour-bar:nth-child(23) { animation-delay: 0.46s; }
+    .hour-bar:nth-child(24) { animation-delay: 0.48s; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .hour-bar .hour-label {
+      font-size: 12px;
+      font-weight: 600;
+      width: 36px;
+      color: var(--text-light);
+      text-align: right;
+    }
+    .hour-bar .bar-track {
+      flex: 1;
+      height: 22px;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 30px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hour-bar .bar-fill {
+      height: 100%;
+      border-radius: 30px;
+      background: linear-gradient(90deg, var(--secondary), var(--primary));
+      transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+      width: 0%;
+    }
+    .hour-bar .bar-value {
+      font-size: 12px;
+      font-weight: 600;
+      width: 50px;
+      color: var(--text);
+      text-align: left;
+    }
+
+    /* ===== 计时器布局 ===== */
+    .timer-section {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+    .timer-section .left {
+      flex: 1.3;
+      min-width: 300px;
+    }
+    .timer-section .right {
+      flex: 0.9;
+      min-width: 280px;
+    }
+
+    /* ===== 呼吸灯 ===== */
+    .timer-card {
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+    .timer-card .breath-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: var(--radius);
+      background: transparent;
+      transition: background 0.8s ease;
+      z-index: 0;
+    }
+    .timer-card .breath-overlay.active {
+      animation: breath 2.4s ease-in-out infinite;
+    }
+    .timer-card>*:not(.breath-overlay) {
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes breath {
+      0% { background: var(--breath-color-start); }
+      50% { background: var(--breath-color-end); }
+      100% { background: var(--breath-color-start); }
+    }
+
+    /* ===== 语音控制 ===== */
+    .voice-control {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 16px;
+    }
+    .voice-control .btn-voice {
+      font-size: 22px;
+      padding: 0;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--secondary);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 16px rgba(78, 205, 196, 0.25);
+    }
+    .voice-control .btn-voice:hover {
+      transform: scale(1.12);
+      box-shadow: 0 8px 28px rgba(78, 205, 196, 0.35);
+    }
+    .voice-control .btn-voice.listening {
+      background: var(--primary);
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.5); }
+      100% { box-shadow: 0 0 0 24px rgba(255, 107, 107, 0); }
+    }
+    .voice-control .voice-status {
+      font-size: 14px;
+      color: var(--text-light);
+      flex: 1;
+      min-width: 80px;
+    }
+    .voice-control .voice-lang-select {
+      padding: 6px 12px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      outline: none;
+      transition: all 0.25s ease;
+      color: var(--text);
+    }
+    .voice-control .voice-lang-select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12);
+    }
+    .voice-control .voice-input {
+      flex: 1;
+      padding: 8px 16px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      min-width: 120px;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      transition: all 0.25s ease;
+      color: var(--text);
+    }
+    .voice-control .voice-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12);
+    }
+
+    .voice-confirm {
+      display: none;
+      margin-top: 12px;
+      padding: 14px 18px;
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      border-left: 4px solid var(--primary);
+      animation: fadeSlide 0.3s ease;
+      backdrop-filter: blur(4px);
+    }
+    .voice-confirm.show {
+      display: flex;
+    }
+    .voice-confirm .hint {
+      color: var(--text);
+      font-weight: 500;
+    }
+    .voice-confirm .btn {
+      padding: 4px 18px;
+      font-size: 13px;
+    }
+
+    /* ===== 计时显示 ===== */
+    .timer-display {
+      text-align: center;
+      padding: 24px 0 16px;
+    }
+    .timer-display .time {
+      font-size: 64px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 4px;
+      color: var(--text);
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      background: var(--bg);
+      padding: 8px 28px;
+      border-radius: var(--radius);
+      display: inline-block;
+      transition: all 0.4s ease;
+      backdrop-filter: blur(4px);
+    }
+    .timer-display .time.pulse {
+      animation: timerPulse 0.5s ease;
+    }
+    @keyframes timerPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .timer-display .status {
+      font-size: 15px;
+      color: var(--text-light);
+      margin-top: 8px;
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+
+    /* ===== 任务选择器 ===== */
+    .task-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 10px;
+      margin: 16px 0 20px;
+    }
+    .task-selector .task-btn {
+      padding: 12px 6px;
+      border: 2px solid rgba(0, 0, 0, 0.06);
+      border-radius: var(--radius-sm);
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      text-align: center;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .task-selector .task-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.12);
+    }
+    .task-selector .task-btn.active {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.30);
+      transform: scale(1.04);
+    }
+    .task-selector .task-btn .color-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ===== 番茄钟设置 ===== */
+    .pomodoro-settings {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 12px 0 8px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      transition: background 0.4s;
+      backdrop-filter: blur(4px);
+    }
+    .pomodoro-settings label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pomodoro-settings input[type="number"] {
+      width: 56px;
+      padding: 4px 8px;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      color: var(--text);
+      transition: border 0.25s;
+    }
+    .pomodoro-settings input[type="number"]:focus {
+      border-color: var(--primary);
+      outline: none;
+    }
+    .pomodoro-settings .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .pomodoro-settings .toggle-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    /* ===== 计时按钮控制区（分裂动画） ===== */
+    .timer-controls {
+      display: flex;
+      gap: 14px;
+      margin-top: 8px;
+      justify-content: center;
+      align-items: center;
+      min-height: 64px;
+      position: relative;
+    }
+    .timer-controls .btn-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      flex: 1;
+      max-width: 190px;
+    }
+    .timer-controls .btn-wrapper.hidden {
+      flex: 0;
+      max-width: 0;
+      opacity: 0;
+      transform: scale(0.6) translateY(12px);
+      pointer-events: none;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    .timer-controls .btn-wrapper.visible {
+      flex: 1;
+      max-width: 190px;
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+    .timer-controls .btn {
+      width: 100%;
+      justify-content: center;
+      padding: 14px 20px;
+      font-size: 15px;
+      border-radius: var(--radius-sm);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      white-space: nowrap;
+    }
+    .timer-controls .btn-start {
+      background: var(--primary);
+      box-shadow: 0 4px 16px rgba(255, 107, 107, 0.25);
+    }
+    .timer-controls .btn-start:hover {
+      box-shadow: 0 10px 32px rgba(255, 107, 107, 0.35);
+      transform: translateY(-3px) scale(1.04);
+    }
+    .timer-controls .btn-pause {
+      background: var(--secondary);
+      box-shadow: 0 4px 16px rgba(78, 205, 196, 0.25);
+    }
+    .timer-controls .btn-pause:hover {
+      box-shadow: 0 10px 32px rgba(78, 205, 196, 0.35);
+      transform: translateY(-3px) scale(1.04);
+    }
+    .timer-controls .btn-stop {
+      background: #EF4444;
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
+    }
+    .timer-controls .btn-stop:hover {
+      box-shadow: 0 10px 32px rgba(239, 68, 68, 0.35);
+      transform: translateY(-3px) scale(1.04);
+    }
+
+    .timer-controls .btn-wrapper-enter {
+      animation: btnEnter 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .timer-controls .btn-wrapper-leave {
+      animation: btnLeave 0.4s cubic-bezier(0.34, 1, 0.64, 1) forwards;
+    }
+
+    @keyframes btnEnter {
+      0% { opacity: 0; transform: scale(0.5) translateY(20px); max-width: 0; flex: 0; }
+      60% { transform: scale(1.1) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); max-width: 190px; flex: 1; }
+    }
+    @keyframes btnLeave {
+      0% { opacity: 1; transform: scale(1) translateY(0); max-width: 190px; flex: 1; }
+      100% { opacity: 0; transform: scale(0.5) translateY(16px); max-width: 0; flex: 0; }
+    }
+
+    /* ===== 饼图 & 图例 ===== */
+    .pie-detail {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .pie-detail .chart-box {
+      flex: 1;
+      min-width: 200px;
+      height: 240px;
+    }
+    .pie-detail .legend-box {
+      flex: 1;
+      min-width: 160px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 0;
+      font-size: 14px;
+      animation: fadeSlide 0.4s ease backwards;
+    }
+    .legend-item:nth-child(1) { animation-delay: 0.05s; }
+    .legend-item:nth-child(2) { animation-delay: 0.10s; }
+    .legend-item:nth-child(3) { animation-delay: 0.15s; }
+    .legend-item:nth-child(4) { animation-delay: 0.20s; }
+    .legend-item .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .legend-item .info {
+      display: flex;
+      justify-content: space-between;
+      flex: 1;
+      font-weight: 500;
+    }
+    .legend-item .info .pct {
+      color: var(--text-light);
+      font-weight: 400;
+    }
+
+    /* ===== 时间范围 & 搜索 ===== */
+    .time-range-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .time-range-tabs .tab {
+      padding: 6px 22px;
+      border-radius: 30px;
+      border: none;
+      background: var(--bg);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: inherit;
+      color: var(--text-light);
+      border: 1px solid transparent;
+      backdrop-filter: blur(4px);
+    }
+    .time-range-tabs .tab.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.25);
+      border-color: var(--primary);
+      transform: scale(1.04);
+    }
+    .time-range-tabs .tab:hover:not(.active) {
+      background: var(--primary-light);
+      border-color: var(--card-border);
+      transform: translateY(-2px);
+    }
+
+    .date-range-picker {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .date-range-picker input {
+      padding: 6px 14px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      outline: none;
+      transition: all 0.25s ease;
+      color: var(--text);
+    }
+    .date-range-picker input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12);
+    }
+
+    .share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 20px;
+      border: none;
+      border-radius: 30px;
+      background: var(--secondary);
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(78, 205, 196, 0.25);
+    }
+    .share-btn:hover {
+      transform: translateY(-3px) scale(1.04);
+      box-shadow: 0 10px 32px rgba(78, 205, 196, 0.35);
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 8px 16px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      color: var(--text);
+      outline: none;
+      transition: all 0.25s ease;
+      min-width: 150px;
+    }
+    .search-bar input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12);
+    }
+    .search-bar select {
+      padding: 8px 16px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      color: var(--text);
+      outline: none;
+      transition: all 0.25s ease;
+    }
+    .search-bar select:focus {
+      border-color: var(--primary);
+    }
+
+    /* ===== 成就徽章 ===== */
+    .badge-grid {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .badge-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      min-width: 80px;
+      transition: all 0.4s ease;
+      border: 2px solid transparent;
+      backdrop-filter: blur(4px);
+    }
+    .badge-item.unlocked {
+      border-color: var(--secondary);
+      background: var(--secondary-light);
+      animation: badgeUnlock 0.7s ease;
+    }
+    @keyframes badgeUnlock {
+      0% { transform: scale(0.4) rotate(-12deg); opacity: 0; }
+      60% { transform: scale(1.2) rotate(4deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .badge-item.locked {
+      opacity: 0.5;
+      filter: grayscale(0.8);
+    }
+    .badge-item .icon {
+      font-size: 34px;
+    }
+    .badge-item .name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      text-align: center;
+    }
+
+    /* ===== 空状态 & Toast & 模态框 ===== */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-light);
+    }
+    .empty-state .icon {
+      font-size: 56px;
+      display: block;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+    .empty-state .text {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text);
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.20);
+      opacity: 0;
+      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 999;
+      pointer-events: none;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-box {
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 32px;
+      max-width: 480px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.30);
+      animation: modalSlide 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes modalSlide {
+      from { opacity: 0; transform: scale(0.92) translateY(24px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-box .modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-box .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-light);
+      transition: all 0.25s ease;
+    }
+    .modal-box .modal-close:hover {
+      color: var(--text);
+      transform: rotate(90deg) scale(1.1);
+    }
+    .modal-box .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .modal-box .setting-row:last-child {
+      border-bottom: none;
+    }
+    .modal-box .setting-row label {
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .modal-box .setting-row input[type="number"],
+    .modal-box .setting-row input[type="text"] {
+      width: 80px;
+      padding: 6px 12px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--bg);
+      color: var(--text);
+      text-align: center;
+      transition: border 0.25s;
+    }
+    .modal-box .setting-row input[type="number"]:focus {
+      border-color: var(--primary);
+      outline: none;
+    }
+    .modal-box .action-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      justify-content: center;
+    }
+    .modal-box .action-buttons .btn {
+      flex: 1;
+      justify-content: center;
+      min-width: 100px;
+    }
+
+    .shortcuts-hint {
+      position: fixed;
+      bottom: 100px;
+      right: 30px;
+      background: var(--card-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-hover);
+      z-index: 50;
+      border: 1px solid var(--card-border);
+      max-width: 220px;
+      display: none;
+      transition: all 0.3s ease;
+    }
+    .shortcuts-hint.show {
+      display: block;
+      animation: fadeSlide 0.3s ease;
+    }
+    .shortcuts-hint .title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .shortcuts-hint .item {
+      font-size: 12px;
+      color: var(--text-light);
+      padding: 4px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    .shortcuts-hint .item kbd {
+      background: var(--bg);
+      padding: 0 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .shortcuts-hint .close-hint {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      background: none;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      color: var(--text-light);
+      transition: transform 0.25s;
+    }
+    .shortcuts-hint .close-hint:hover {
+      transform: rotate(90deg);
+    }
+
+    /* ===== 分类管理 ===== */
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .category-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      transition: all 0.3s ease;
+      flex-wrap: wrap;
+      border: 1px solid transparent;
+      backdrop-filter: blur(4px);
+    }
+    .category-item:hover {
+      background: rgba(0, 0, 0, 0.03);
+      border-color: var(--card-border);
+      transform: translateX(4px);
+    }
+    .category-item .color-preview {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      border: 2px solid var(--card-border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    .category-item .cat-name {
+      flex: 0 0 auto;
+      font-weight: 600;
+      font-size: 15px;
+      min-width: 60px;
+    }
+    .category-item .cat-aliases,
+    .category-item .cat-keywords {
+      flex: 1;
+      min-width: 130px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-light);
+    }
+    .category-item .cat-aliases input,
+    .category-item .cat-keywords input {
+      flex: 1;
+      padding: 4px 10px;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.25s ease;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      color: var(--text);
+    }
+    .category-item .cat-aliases input:focus,
+    .category-item .cat-keywords input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.10);
+    }
+    .category-item .cat-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .category-item .cat-actions .btn {
+      padding: 4px 14px;
+      font-size: 12px;
+    }
+    .category-item .cat-actions .cat-color-picker {
+      width: 32px;
+      height: 32px;
+      padding: 2px;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      cursor: pointer;
+      background: var(--card-bg);
+      transition: border 0.25s;
+    }
+    .category-item .cat-actions .cat-color-picker:hover {
+      border-color: var(--primary);
+    }
+
+    .add-category {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 16px;
+    }
+    .add-category input[type="text"] {
+      padding: 8px 16px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      flex: 1;
+      min-width: 150px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.25s ease;
+      background: var(--card-bg);
+      backdrop-filter: blur(4px);
+      color: var(--text);
+    }
+    .add-category input[type="text"]:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12);
+    }
+    .add-category input[type="color"] {
+      width: 44px;
+      height: 44px;
+      padding: 2px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      background: var(--card-bg);
+      transition: border 0.25s;
+    }
+    .add-category input[type="color"]:hover {
+      border-color: var(--primary);
+    }
+    .add-category .btn {
+      padding: 8px 24px;
+    }
+
+    /* ===== 自定义主题色 ===== */
+    .color-picker-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .color-picker-wrapper input[type="color"] {
+      width: 44px;
+      height: 44px;
+      padding: 2px;
+      border: 2px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      background: var(--card-bg);
+      transition: border 0.25s;
+    }
+    .color-picker-wrapper input[type="color"]:hover {
+      border-color: var(--primary);
+    }
+
+    /* ===== 本地 MP3 播放器 ===== */
+    .music-player {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      backdrop-filter: blur(4px);
+    }
+    .music-player input[type="file"] {
+      font-size: 12px;
+      max-width: 120px;
+      color: var(--text-light);
+    }
+    .music-player .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+    .music-player .controls button {
+      padding: 4px 14px;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: var(--secondary);
+      color: #fff;
+      transition: all 0.3s ease;
+    }
+    .music-player .controls button:hover {
+      transform: scale(1.12);
+      box-shadow: 0 4px 16px rgba(78, 205, 196, 0.3);
+    }
+    .music-player .controls input[type="range"] {
+      flex: 1;
+      min-width: 60px;
+      accent-color: var(--primary);
+    }
+    .music-player .controls span {
+      font-size: 12px;
+      color: var(--text-light);
+      min-width: 40px;
+    }
+    .music-player .file-info {
+      font-size: 12px;
+      color: var(--text-light);
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ===== 图表容器 ===== */
+    .chart-container {
+      position: relative;
+      height: 280px;
+      width: 100%;
+    }
+    .chart-container-sm {
+      height: 220px;
+    }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .grid-4 { grid-template-columns: 1fr 1fr 1fr; }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --nav-width: 64px;
+        --header-height: 60px;
+        --glass-blur: 12px;
+      }
+      .sidebar .logo { font-size: 28px; margin-bottom: 24px; }
+      .sidebar .logo span { font-size: 8px; }
+      .nav-item .label { font-size: 8px; }
+      .nav-item .icon { font-size: 20px; }
+      .nav-item { padding: 10px 0; }
+      .content { padding: 20px 16px 30px; }
+      .header { padding: 0 16px; }
+      .header .title { font-size: 17px; }
+      .header .title .sub { font-size: 12px; }
+      .header .actions .date-display { font-size: 12px; padding: 4px 12px; }
+      .grid-2 { grid-template-columns: 1fr 1fr; gap: 16px; }
+      .grid-4 { grid-template-columns: 1fr 1fr; gap: 16px; }
+      .timer-section { flex-direction: column; }
+      .timer-section .left, .timer-section .right { min-width: 0; flex: 1; }
+      .timer-display .time { font-size: 48px; padding: 4px 16px; }
+      .task-selector { grid-template-columns: 1fr 1fr; }
+      .pie-detail { flex-direction: column; }
+      .pie-detail .chart-box { height: 200px; width: 100%; }
+      .stat-number { font-size: 26px; }
+      .stat-card .stat-number { font-size: 24px; }
+      .date-range-picker input { font-size: 12px; padding: 4px 10px; width: 120px; }
+      .voice-control .btn-voice { width: 48px; height: 48px; font-size: 20px; }
+      .timer-controls .btn { padding: 12px 16px; font-size: 14px; }
+      .record-item { font-size: 13px; }
+      .record-item .time { font-size: 11px; }
+      .add-category { flex-direction: column; align-items: stretch; }
+      .add-category input[type="color"] { align-self: center; }
+      .category-item .cat-aliases, .category-item .cat-keywords { flex: 1 1 100%; min-width: 0; }
+      .category-item .cat-name { flex: 1; }
+      .voice-control .voice-lang-select { width: auto; }
+      .pomodoro-settings { flex-direction: column; align-items: stretch; }
+      .gauge-ring { width: 100px; height: 100px; }
+      .gauge-ring .center-text { font-size: 20px; }
+      .modal-box { padding: 24px; }
+      .shortcuts-hint { right: 10px; bottom: 80px; max-width: 180px; padding: 12px 16px; }
+      .timer-controls .btn-wrapper { max-width: 140px; }
+      .timer-controls .btn-wrapper.visible { max-width: 140px; }
+      .music-player .controls input[type="range"] { min-width: 40px; }
+      .music-player input[type="file"] { max-width: 90px; }
+      @keyframes btnEnter {
+        0% { opacity: 0; transform: scale(0.5) translateY(20px); max-width: 0; flex: 0; }
+        60% { transform: scale(1.1) translateY(-4px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); max-width: 140px; flex: 1; }
+      }
+      @keyframes btnLeave {
+        0% { opacity: 1; transform: scale(1) translateY(0); max-width: 140px; flex: 1; }
+        100% { opacity: 0; transform: scale(0.5) translateY(16px); max-width: 0; flex: 0; }
+      }
+    }
+
+    @media (max-width: 480px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .content { padding: 14px 12px 24px; }
+      .card { padding: 16px 18px; margin-bottom: 16px; }
+      .stat-number { font-size: 22px; }
+      .stat-card .stat-number { font-size: 20px; }
+      .timer-display .time { font-size: 36px; padding: 4px 12px; }
+      .header .title { font-size: 15px; }
+      .header .title .sub { display: none; }
+      .task-selector { grid-template-columns: 1fr 1fr; }
+      .task-selector .task-btn { font-size: 12px; padding: 8px 4px; }
+      .date-nav .date-text { font-size: 14px; min-width: 100px; }
+      .voice-control { flex-direction: column; align-items: stretch; }
+      .voice-control .btn-voice { align-self: center; }
+      .voice-control .voice-lang-select { align-self: center; }
+      .voice-confirm { flex-direction: column; align-items: stretch; text-align: center; }
+      .voice-confirm .btn { align-self: center; }
+      .category-item { flex-direction: column; align-items: stretch; gap: 10px; }
+      .category-item .cat-actions { justify-content: flex-end; }
+      .badge-grid { gap: 10px; }
+      .badge-item { min-width: 60px; padding: 8px 12px; }
+      .badge-item .icon { font-size: 28px; }
+      .modal-box { padding: 16px; }
+      .modal-box .setting-row { flex-direction: column; align-items: stretch; gap: 6px; }
+      .modal-box .setting-row input[type="number"] { width: 100%; }
+      .search-bar { flex-direction: column; }
+      .search-bar select { width: 100%; }
+      .timer-controls .btn-wrapper { max-width: 100px; }
+      .timer-controls .btn-wrapper.visible { max-width: 100px; }
+      .timer-controls .btn { font-size: 12px; padding: 10px 12px; }
+      .music-player .controls { flex-wrap: wrap; }
+      .music-player .controls input[type="range"] { min-width: 60px; }
+      @keyframes btnEnter {
+        0% { opacity: 0; transform: scale(0.5) translateY(20px); max-width: 0; flex: 0; }
+        60% { transform: scale(1.1) translateY(-4px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); max-width: 100px; flex: 1; }
+      }
+      @keyframes btnLeave {
+        0% { opacity: 1; transform: scale(1) translateY(0); max-width: 100px; flex: 1; }
+        100% { opacity: 0; transform: scale(0.5) translateY(16px); max-width: 0; flex: 0; }
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       页面结构
+       ============================================================ -->
+  <div class="app">
+    <!-- 侧边栏 -->
+    <nav class="sidebar" id="sidebar">
+      <div class="logo">🍅<span>全能专注</span></div>
+      <div class="nav-items">
+        <button class="nav-item active" data-page="timer"><span class="icon">⏱️</span><span class="label">计时</span></button>
+        <button class="nav-item" data-page="overview"><span class="icon">📊</span><span class="label">总览</span></button>
+        <button class="nav-item" data-page="daily"><span class="icon">📅</span><span class="label">明细</span></button>
+        <button class="nav-item" data-page="pie"><span class="icon">🥧</span><span class="label">分析</span></button>
+        <button class="nav-item" data-page="hourly"><span class="icon">📈</span><span class="label">时段</span></button>
+        <button class="nav-item" data-page="categories"><span class="icon">⚙️</span><span class="label">分类</span></button>
+      </div>
+    </nav>
+
+    <!-- 主区域 -->
+    <div class="main">
+      <header class="header" id="appHeader">
+        <div class="title"><span id="pageTitle">⏱️ 专注计时</span><span class="sub" id="pageSub">全能版</span></div>
+        <div class="actions">
+          <span class="date-display" id="headerDate">今天</span>
+          <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
+          <button class="btn btn-sm btn-outline" id="settingsBtn">⚙️</button>
+          <button class="btn btn-sm btn-outline" id="exportBtn">📤</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- ===== 计时器页面 ===== -->
+        <div class="page active" id="page-timer">
+          <div class="timer-section">
+            <div class="left">
+              <div class="card">
+                <div class="card-title">🎤 语音 & 关键词触发 <span class="tag">支持别名</span></div>
+                <div class="voice-control">
+                  <button class="btn-voice" id="voiceBtn" title="点击开始语音识别">🎤</button>
+                  <span class="voice-status" id="voiceStatus">点击🎤说出分类名称或别名</span>
+                  <select class="voice-lang-select" id="voiceLang">
+                    <option value="zh-CN">中文</option>
+                    <option value="en-US">English</option>
+                    <option value="auto">自动</option>
+                  </select>
+                  <input type="text" class="voice-input" id="keywordInput" placeholder="输入分类名称或别名" />
+                  <button class="btn btn-sm" id="keywordTriggerBtn">触发</button>
+                </div>
+                <div class="voice-confirm" id="voiceConfirm">
+                  <span class="hint" id="confirmHint">识别到：</span>
+                  <button class="btn btn-sm" id="confirmYes">✅ 确认</button>
+                  <button class="btn btn-sm btn-outline" id="confirmNo">❌ 取消</button>
+                </div>
+                <div style="margin-top:8px;font-size:12px;color:var(--text-light);">💡 说出或输入分类名称或别名，确认后自动开始</div>
+              </div>
+              <div class="card" style="margin-top:0;">
+                <div class="card-title">📋 今日记录 <span class="tag" id="todayCount">0 条</span></div>
+                <div class="record-list" id="todayRecords"><div class="empty-state" style="padding:16px 0;"><span class="text">今天还没有专注记录</span></div></div>
+              </div>
+            </div>
+            <div class="right">
+              <div class="card timer-card" id="timerCard">
+                <div class="breath-overlay" id="breathOverlay"></div>
+                <div class="card-title">⏱️ 专注计时 <button class="btn btn-sm btn-outline" id="shortcutsToggle" style="margin-left:auto;">⌨️</button></div>
+                <div class="timer-display">
+                  <div class="time" id="timerDisplay">00:00:00</div>
+                  <div class="status" id="timerStatus">⏸️ 未开始</div>
+                </div>
+                <!-- 本地 MP3 播放器 -->
+                <div class="music-player" id="musicPlayer">
+                  <input type="file" id="mp3FileInput" accept=".mp3" />
+                  <div class="controls">
+                    <button id="playBtn">▶️</button>
+                    <input type="range" id="progressBar" min="0" max="100" value="0" />
+                    <span id="timeDisplay">00:00</span>
+                    <input type="range" id="volumeControl" min="0" max="100" value="80" style="width:60px;" />
+                  </div>
+                  <span class="file-info" id="fileName">未选择文件</span>
+                </div>
+                <div class="task-selector" id="taskSelector"></div>
+                <div class="pomodoro-settings">
+                  <label>🍅 番茄钟 <input type="checkbox" id="pomodoroToggle" /></label>
+                  <label>专注 <input type="number" id="focusDuration" value="25" min="1" max="120" /> min</label>
+                  <label>休息 <input type="number" id="breakDuration" value="5" min="1" max="30" /> min</label>
+                </div>
+                <div class="timer-controls" id="timerControls">
+                  <div class="btn-wrapper visible" id="wrapStart"><button class="btn btn-start" id="btnStart">▶️ 开始</button></div>
+                  <div class="btn-wrapper hidden" id="wrapPause"><button class="btn btn-pause" id="btnPause">⏸️ 暂停</button></div>
+                  <div class="btn-wrapper hidden" id="wrapStop"><button class="btn btn-stop" id="btnStop">⏹️ 结束</button></div>
+                </div>
+                <div style="margin-top:14px;font-size:13px;color:var(--text-light);text-align:center;">当前任务：<strong id="currentTaskLabel" style="color:var(--text);">未选择</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== 总览页面 ===== -->
+        <div class="page" id="page-overview">
+          <div class="grid-4" id="overviewStats">
+            <div class="stat-card"><div class="stat-number" id="totalSessions">0</div><div class="stat-label">🎯 总专注次数</div></div>
+            <div class="stat-card"><div class="stat-number" id="totalHours">0 <span class="unit">h</span></div><div class="stat-label">⏱️ 累计总时长</div></div>
+            <div class="stat-card"><div class="stat-number" id="avgDaily">0 <span class="unit">h</span></div><div class="stat-label">📊 日均专注</div></div>
+            <div class="stat-card"><div class="stat-number" id="streakDays">0</div><div class="stat-label">🔥 连续专注天数</div></div>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-title">🎯 今日目标进度</div>
+              <div class="gauge-container">
+                <div class="gauge-ring">
+                  <svg width="120" height="120" viewBox="0 0 120 120">
+                    <circle class="bg-circle" cx="60" cy="60" r="50" />
+                    <circle class="progress-circle" id="goalProgressRing" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16" />
+                  </svg>
+                  <div class="center-text" id="goalProgressText">0%</div>
+                  <div class="center-label">目标达成</div>
+                </div>
+                <div style="margin-top:8px;font-size:14px;color:var(--text-light);">今日 <span id="todayGoalMinutes">0</span> / <span id="dailyGoalTarget">120</span> 分钟</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">🏆 累计总时长 <span class="tag" id="totalGoalLabel">目标 100h</span></div>
+              <div class="gauge-container">
+                <div class="gauge-ring">
+                  <svg width="120" height="120" viewBox="0 0 120 120">
+                    <circle class="bg-circle" cx="60" cy="60" r="50" />
+                    <circle class="progress-circle" id="totalHoursRing" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16" />
+                  </svg>
+                  <div class="center-text" id="totalHoursPercent">0%</div>
+                  <div class="center-label" id="totalGoalLabelSmall">100h 目标</div>
+                </div>
+                <div style="margin-top:8px;font-size:14px;color:var(--text-light);">已累计 <span id="totalHoursDisplay">0.0</span> 小时</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+            <button class="btn btn-sm btn-secondary" id="reportDailyBtn">📋 今日报告</button>
+            <button class="btn btn-sm btn-secondary" id="reportWeeklyBtn">📋 本周报告</button>
+          </div>
+          <div class="card"><div class="card-title">🏅 成就徽章</div><div class="badge-grid" id="badgeGrid"></div></div>
+          <div class="card"><div class="card-title">📈 近7天专注趋势</div><div class="chart-container"><canvas id="trendChart"></canvas></div></div>
+          <div class="grid-2">
+            <div class="card"><div class="card-title">🏆 各科目总时长</div><div class="chart-container chart-container-sm"><canvas id="overviewPieChart"></canvas></div></div>
+            <div class="card"><div class="card-title">📊 科目分布</div><div id="overviewLegend" style="display:flex;flex-direction:column;gap:8px;padding:4px 0;"></div></div>
+          </div>
+        </div>
+
+        <!-- ===== 明细页面 ===== -->
+        <div class="page" id="page-daily">
+          <div class="date-nav">
+            <button class="arrow" id="dayPrev">‹</button>
+            <span class="date-text" id="dayLabel">2026-01-01</span>
+            <button class="arrow" id="dayNext">›</button>
+            <button class="btn btn-sm btn-outline" id="dayToday">今天</button>
+          </div>
+          <div class="search-bar">
+            <input type="text" id="dailySearchInput" placeholder="🔍 搜索任务名称..." />
+            <select id="dailyFilterTask"><option value="">全部任务</option></select>
+            <input type="date" id="dailyFilterDate" />
+            <button class="btn btn-sm btn-outline" id="dailyFilterClear">清除筛选</button>
+          </div>
+          <div class="grid-2" id="dailyStats">
+            <div class="stat-card"><div class="stat-number" id="dailySessions">0</div><div class="stat-label">📌 专注次数</div></div>
+            <div class="stat-card"><div class="stat-number" id="dailyTotal">0 <span class="unit">min</span></div><div class="stat-label">⏱️ 总专注时长</div></div>
+          </div>
+          <div class="card"><div class="card-title">📋 当日专注记录 <span class="tag" id="dailyRecordCount">0 条</span></div><div class="record-list" id="dailyRecordList"><div class="empty-state" style="padding:20px 0;"><span class="text">这一天没有专注记录</span></div></div></div>
+        </div>
+
+        <!-- ===== 分析（饼图）页面 ===== -->
+        <div class="page" id="page-pie">
+          <div class="time-range-tabs" id="pieTabs">
+            <button class="tab active" data-range="day">📅 日</button>
+            <button class="tab" data-range="week">📆 周</button>
+            <button class="tab" data-range="month">📊 月</button>
+            <button class="tab" data-range="custom">📅 自定义</button>
+          </div>
+          <div class="date-range-picker" id="customRangePicker" style="display:none;">
+            <span>从</span><input type="date" id="rangeStart" />
+            <span>到</span><input type="date" id="rangeEnd" />
+            <button class="btn btn-sm" id="rangeApplyBtn">应用</button>
+          </div>
+          <div class="card">
+            <div class="card-title" style="justify-content:space-between;">
+              <span>🥧 科目时长分布</span>
+              <button class="share-btn" id="pieShareBtn">📤 分享图表</button>
+            </div>
+            <div class="pie-detail">
+              <div class="chart-box"><canvas id="pieChart"></canvas></div>
+              <div class="legend-box" id="pieLegend"></div>
+            </div>
+          </div>
+          <div class="card"><div class="card-title">📋 详细记录 <span class="tag" id="pieRecordCount">0 条</span></div><div class="record-list" id="pieRecordList" style="max-height:400px;"><div class="empty-state" style="padding:20px 0;"><span class="text">没有匹配的记录</span></div></div></div>
+        </div>
+
+        <!-- ===== 时段页面 ===== -->
+        <div class="page" id="page-hourly">
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+            <label style="font-weight:600;font-size:14px;color:var(--text);">📆 统计月份：</label>
+            <input type="month" id="hourlyMonth" style="padding:6px 14px;border:1.5px solid var(--card-border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;background:var(--card-bg);color:var(--text);" />
+            <button class="btn btn-sm" id="hourlyRefreshBtn">刷新</button>
+          </div>
+          <div class="card"><div class="card-title">📈 各时段专注峰值 <span class="tag">按小时统计</span></div><div id="hourlyBars" style="padding:4px 0;"></div></div>
+          <div class="grid-2">
+            <div class="card"><div class="card-title">🏅 最佳专注时段</div><div id="bestHourDisplay" style="font-size:18px;font-weight:700;color:var(--primary);padding:8px 0;">暂无数据</div></div>
+            <div class="card"><div class="card-title">📊 总专注次数</div><div id="hourlyTotalSessions" style="font-size:18px;font-weight:700;padding:8px 0;">0 次</div></div>
+          </div>
+        </div>
+
+        <!-- ===== 分类管理页面 ===== -->
+        <div class="page" id="page-categories">
+          <div class="card">
+            <div class="card-title">📂 我的分类 <span class="tag" id="categoryCount">0 个</span></div>
+            <div class="category-list" id="categoryList"></div>
+            <div class="add-category">
+              <input type="text" id="newCatName" placeholder="新分类名称" maxlength="20" />
+              <input type="color" id="newCatColor" value="#3B82F6" />
+              <button class="btn" id="addCategoryBtn">➕ 添加</button>
+            </div>
+            <div style="margin-top:14px;font-size:13px;color:var(--text-light);line-height:1.6;">💡 语音别名用于语音识别匹配，关键词用于文本匹配，均支持逗号分隔。</div>
+          </div>
+        </div>
+
+      </div><!-- end .content -->
+    </div><!-- end .main -->
+  </div>
+
+  <!-- ============================================================
+       快捷键、模态框、Toast
+       ============================================================ -->
+  <div class="shortcuts-hint" id="shortcutsHint">
+    <button class="close-hint" id="shortcutsClose">✕</button>
+    <div class="title">⌨️ 快捷键</div>
+    <div class="item"><span>开始/暂停</span> <kbd>Space</kbd></div>
+    <div class="item"><span>结束计时</span> <kbd>S</kbd></div>
+    <div class="item"><span>切换主题</span> <kbd>D</kbd></div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box">
+      <div class="modal-title">
+        ⚙️ 设置
+        <button class="modal-close" id="settingsClose">✕</button>
+      </div>
+      <div class="setting-row">
+        <label>🎨 主题色</label>
+        <div class="color-picker-wrapper">
+          <input type="color" id="themeColorPicker" value="#FF6B6B" />
+          <span style="font-size:12px;color:var(--text-light);">选择主色</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>🎯 每日目标 (分钟)</label>
+        <input type="number" id="dailyGoalInput" min="10" max="600" />
+      </div>
+      <div class="setting-row">
+        <label>🏆 累计目标 (小时)</label>
+        <input type="number" id="totalGoalInput" min="10" max="1000" />
+      </div>
+      <div class="setting-row">
+        <label>🍅 专注时长 (分钟)</label>
+        <input type="number" id="focusDurationInput" min="1" max="120" />
+      </div>
+      <div class="setting-row">
+        <label>☕ 休息时长 (分钟)</label>
+        <input type="number" id="breakDurationInput" min="1" max="30" />
+      </div>
+      <div class="setting-row" style="border-bottom: none; margin-top: 8px;">
+        <label style="font-weight:600;">📦 数据管理</label>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-sm btn-success" id="importDataBtn">📥 导入数据</button>
+        <button class="btn btn-sm btn-danger" id="clearDataBtn">🗑️ 清除所有数据</button>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none;" />
+      <div style="margin-top:12px;font-size:12px;color:var(--text-light);text-align:center;">导出数据请点击右上角 📤 按钮</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ================================================================
+    // 完整 JavaScript —— 所有功能（计时、总览、明细、分析、时段、分类）
+    // 包含：状态管理、持久化、计时器、番茄钟、呼吸灯、动态背景、
+    //       语音识别、本地MP3播放、报告、通知、自定义主题等
+    // ================================================================
+
+    // ----- 状态 -----
+    const STATE = {
+      records: [],
+      timer: {
+        running: false,
+        paused: false,
+        startTime: null,
+        elapsed: 0,
+        task: null,
+        startedAt: null,
+        pomodoroActive: false,
+        pomodoroPhase: 'focus',
+        pomodoroTarget: 0,
+        pomodoroRemaining: 0,
+        pomodoroIntervalId: null,
+      },
+      selectedDate: new Date(),
+      pieRange: 'day',
+      customStart: null,
+      customEnd: null,
+      charts: { trend: null, overviewPie: null, pie: null },
+      categories: [],
+      _catIdCounter: 0,
+      pendingVoiceMatch: null,
+      settings: {
+        dailyGoal: 120,
+        focusDuration: 25,
+        breakDuration: 5,
+        totalGoal: 100,
+      },
+      theme: 'light',
+      dailyFilter: { search: '', task: '', date: '' },
+      themeColor: '#FF6B6B',
+      // MP3 播放器状态
+      audio: null,
+      isPlaying: false,
+      currentFile: null,
+    };
+
+    // ----- 工具函数 -----
+    function formatTime(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+      const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+      const s = String(totalSec % 60).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function formatDuration(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      if (totalSec < 60) return `${totalSec}s`;
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      if (m < 60) return `${m}m${s}s`;
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      return `${h}h${rm}m`;
+    }
+
+    function formatDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function parseDate(str) {
+      const parts = str.split('-').map(Number);
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    function dateKey(d) { return formatDate(d); }
+
+    function getToday() {
+      const d = new Date();
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function getWeekStart(d) {
+      const dt = new Date(d);
+      const day = dt.getDay();
+      const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
+      dt.setDate(diff);
+      dt.setHours(0, 0, 0, 0);
+      return dt;
+    }
+
+    function getMonthStart(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function getMonthEnd(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+    function getWeekEnd(d) {
+      const start = getWeekStart(d);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return end;
+    }
+
+    function getCategory(name) {
+      return STATE.categories.find(c => c.name === name);
+    }
+
+    function getCategoryColor(name) {
+      const cat = getCategory(name);
+      return cat ? cat.color : '#6B7280';
+    }
+
+    function getCategoryMatchWords(name) {
+      const cat = getCategory(name);
+      if (!cat) return [];
+      const words = [name];
+      if (cat.aliases) {
+        cat.aliases.split(',').forEach(a => {
+          const trimmed = a.trim();
+          if (trimmed) words.push(trimmed);
+        });
+      }
+      if (cat.keywords) {
+        cat.keywords.split(',').forEach(k => {
+          const trimmed = k.trim();
+          if (trimmed) words.push(trimmed);
+        });
+      }
+      return words;
+    }
+
+    function speakText(text) { /* 无操作（语音播报已禁用） */ }
+
+    // ----- 数据持久化 -----
+    const DEFAULT_CATEGORIES = [
+      { id: 'cat_prog', name: '编程', color: '#3B82F6', aliases: '写代码, coding, 程序', keywords: 'code, programming, 算法' },
+      { id: 'cat_math', name: '数学', color: '#F59E0B', aliases: '高数, math, 代数, 几何', keywords: 'calculus, algebra, 公式' },
+      { id: 'cat_eng', name: '英语', color: '#10B981', aliases: '英文, english, 雅思, 托福', keywords: 'vocabulary, grammar, 阅读' },
+      { id: 'cat_read', name: '阅读', color: '#8B5CF6', aliases: '看书, 读书, 文献', keywords: 'book, paper, 文章' },
+      { id: 'cat_write', name: '写作', color: '#EC4899', aliases: '写稿, 创作, 论文', keywords: 'writing, report, 文案' },
+    ];
+
+    function loadCategories() {
+      try {
+        const data = localStorage.getItem('focus_categories');
+        if (data) {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed) && parsed.length) {
+            STATE.categories = parsed;
+            let maxId = 0;
+            parsed.forEach(c => {
+              const num = parseInt(c.id.replace('cat_', ''));
+              if (!isNaN(num) && num > maxId) maxId = num;
+            });
+            STATE._catIdCounter = maxId;
+            return;
+          }
+        }
+      } catch (e) {}
+      STATE.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+      STATE._catIdCounter = 100;
+      saveCategories();
+    }
+
+    function saveCategories() {
+      try { localStorage.setItem('focus_categories', JSON.stringify(STATE.categories)); } catch (e) {}
+    }
+
+    function addCategory(name, color, aliases = '', keywords = '') {
+      if (!name || name.trim() === '') return false;
+      name = name.trim();
+      if (STATE.categories.some(c => c.name === name)) {
+        showToast('⚠️ 分类名称已存在');
+        return false;
+      }
+      STATE._catIdCounter++;
+      const id = 'cat_' + STATE._catIdCounter;
+      STATE.categories.push({ id, name, color, aliases, keywords });
+      saveCategories();
+      return true;
+    }
+
+    function deleteCategory(id) {
+      const idx = STATE.categories.findIndex(c => c.id === id);
+      if (idx === -1) return false;
+      if (STATE.categories.length <= 1) {
+        showToast('⚠️ 至少保留一个分类');
+        return false;
+      }
+      STATE.categories.splice(idx, 1);
+      saveCategories();
+      return true;
+    }
+
+    function updateCategoryColor(id, color) {
+      const cat = STATE.categories.find(c => c.id === id);
+      if (cat) { cat.color = color;
+        saveCategories(); return true; }
+      return false;
+    }
+
+    function updateCategoryAliases(id, aliases) {
+      const cat = STATE.categories.find(c => c.id === id);
+      if (cat) { cat.aliases = aliases;
+        saveCategories(); return true; }
+      return false;
+    }
+
+    function updateCategoryKeywords(id, keywords) {
+      const cat = STATE.categories.find(c => c.id === id);
+      if (cat) { cat.keywords = keywords;
+        saveCategories(); return true; }
+      return false;
+    }
+
+    function loadRecords() {
+      try {
+        const data = localStorage.getItem('focus_records');
+        if (data) {
+          STATE.records = JSON.parse(data);
+          STATE.records = STATE.records.filter(r => r && typeof r === 'object').map(r => {
+            if (!r.id) r.id = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            return r;
+          });
+        }
+      } catch (e) { STATE.records = []; }
+    }
+
+    function saveRecords() {
+      try { localStorage.setItem('focus_records', JSON.stringify(STATE.records)); } catch (e) {}
+    }
+
+    function loadSettings() {
+      try {
+        const data = localStorage.getItem('focus_settings');
+        if (data) {
+          const parsed = JSON.parse(data);
+          STATE.settings = { ...STATE.settings, ...parsed };
+        }
+      } catch (e) {}
+    }
+
+    function saveSettings() {
+      try { localStorage.setItem('focus_settings', JSON.stringify(STATE.settings)); } catch (e) {}
+    }
+
+    function loadTheme() {
+      try {
+        const theme = localStorage.getItem('focus_theme');
+        if (theme) {
+          STATE.theme = theme;
+          document.documentElement.setAttribute('data-theme', theme);
+          document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+      } catch (e) {}
+    }
+
+    function saveTheme() {
+      try { localStorage.setItem('focus_theme', STATE.theme); } catch (e) {}
+    }
+
+    function loadThemeColor() {
+      try {
+        const color = localStorage.getItem('focus_theme_color');
+        if (color) {
+          STATE.themeColor = color;
+          applyThemeColor(color);
+        }
+      } catch (e) {}
+    }
+
+    function saveThemeColor(color) {
+      try { localStorage.setItem('focus_theme_color', color); } catch (e) {}
+    }
+
+    function addRecord(record) {
+      STATE.records.push(record);
+      saveRecords();
+      checkAchievements();
+    }
+
+    function getRecordsForDate(date) {
+      const key = dateKey(date);
+      return STATE.records.filter(r => r.date === key);
+    }
+
+    function getRecordsInRange(start, end) {
+      const s = new Date(start);
+      s.setHours(0, 0, 0, 0);
+      const e = new Date(end);
+      e.setHours(23, 59, 59, 999);
+      return STATE.records.filter(r => {
+        const d = parseDate(r.date);
+        return d >= s && d <= e;
+      });
+    }
+
+    function getTaskDistribution(records) {
+      const dist = {};
+      STATE.categories.forEach(c => { dist[c.name] = 0; });
+      records.forEach(r => {
+        if (dist[r.task] !== undefined) dist[r.task] += r.duration;
+        else {
+          if (!dist['其他']) dist['其他'] = 0;
+          dist['其他'] += r.duration;
+        }
+      });
+      return dist;
+    }
+
+    function getHourlyDistribution(records) {
+      const hours = Array(24).fill(0);
+      records.forEach(r => {
+        const d = new Date(r.start);
+        const h = d.getHours();
+        hours[h] += r.duration;
+      });
+      return hours;
+    }
+
+    function getStreakDays(records) {
+      if (!records.length) return 0;
+      const dates = [...new Set(records.map(r => r.date))].sort();
+      let streak = 0;
+      let check = new Date();
+      while (true) {
+        const key = dateKey(check);
+        if (dates.includes(key)) { streak++;
+          check.setDate(check.getDate() - 1); } else break;
+      }
+      if (streak === 0) {
+        let d = new Date();
+        d.setDate(d.getDate() - 1);
+        while (true) {
+          const key = dateKey(d);
+          if (dates.includes(key)) { streak++;
+            d.setDate(d.getDate() - 1); } else break;
+        }
+      }
+      return streak;
+    }
+
+    // ----- 成就系统 -----
+    const ACHIEVEMENTS = [
+      { id: 'streak_7', name: '连续7天', icon: '🔥', check: () => getStreakDays(STATE.records) >= 7 },
+      { id: 'streak_30', name: '连续30天', icon: '⭐', check: () => getStreakDays(STATE.records) >= 30 },
+      { id: 'hours_100', name: '累计100小时', icon: '🏆', check: () => {
+          const totalMs = STATE.records.reduce((s, r) => s + r.duration, 0);
+          return totalMs >= 3600000 * 100;
+        } },
+    ];
+
+    let unlockedAchievements = [];
+
+    function loadAchievements() {
+      try {
+        const data = localStorage.getItem('focus_achievements');
+        if (data) unlockedAchievements = JSON.parse(data);
+        else unlockedAchievements = [];
+      } catch (e) { unlockedAchievements = []; }
+    }
+
+    function saveAchievements() {
+      try { localStorage.setItem('focus_achievements', JSON.stringify(unlockedAchievements)); } catch (e) {}
+    }
+
+    function checkAchievements() {
+      let changed = false;
+      ACHIEVEMENTS.forEach(a => {
+        if (!unlockedAchievements.includes(a.id) && a.check()) {
+          unlockedAchievements.push(a.id);
+          changed = true;
+          showToast(`🎉 解锁成就：${a.icon} ${a.name}`);
+          sendNotification('🎉 成就解锁', `${a.icon} ${a.name}`);
+        }
+      });
+      if (changed) {
+        saveAchievements();
+        renderBadges();
+      }
+    }
+
+    function renderBadges() {
+      const container = document.getElementById('badgeGrid');
+      container.innerHTML = ACHIEVEMENTS.map(a => {
+        const unlocked = unlockedAchievements.includes(a.id);
+        return `<div class="badge-item ${unlocked ? 'unlocked' : 'locked'}">
+                    <span class="icon">${a.icon}</span>
+                    <span class="name">${a.name}</span>
+                  </div>`;
+      }).join('');
+    }
+
+    // ----- Toast & 通知 -----
+    let toastTimer = null;
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.classList.remove('show'); }, 2200);
+    }
+
+    function sendNotification(title, body) {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        new Notification(title, { body, icon: '🍅' });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(perm => {
+          if (perm === 'granted') {
+            new Notification(title, { body, icon: '🍅' });
+          }
+        });
+      }
+    }
+
+    // ----- 导航切换 -----
+    const navItems = document.querySelectorAll('.nav-item');
+    const pages = {
+      timer: document.getElementById('page-timer'),
+      overview: document.getElementById('page-overview'),
+      daily: document.getElementById('page-daily'),
+      pie: document.getElementById('page-pie'),
+      hourly: document.getElementById('page-hourly'),
+      categories: document.getElementById('page-categories'),
+    };
+    const pageTitles = {
+      timer: '⏱️ 专注计时',
+      overview: '📊 统计总览',
+      daily: '📅 单日明细',
+      pie: '🥧 科目分析',
+      hourly: '📈 时段统计',
+      categories: '⚙️ 分类管理',
+    };
+    const pageSubs = {
+      timer: '全能版 · 番茄钟 + 语音',
+      overview: '仪表盘 & 综合数据',
+      daily: '搜索与筛选',
+      pie: '可视化分析',
+      hourly: '优化时间分配',
+      categories: '自定义分类与别名',
+    };
+
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const page = item.dataset.page;
+        navItems.forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+        Object.keys(pages).forEach(key => {
+          pages[key].classList.toggle('active', key === page);
+        });
+        document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+        document.getElementById('pageSub').textContent = pageSubs[page] || '';
+        if (page === 'overview') renderOverview();
+        if (page === 'daily') renderDaily();
+        if (page === 'pie') renderPie();
+        if (page === 'hourly') renderHourly();
+        if (page === 'timer') renderTodayRecords();
+        if (page === 'categories') renderCategories();
+      });
+    });
+
+    // ----- 计时器核心逻辑 -----
+    const timerDisplay = document.getElementById('timerDisplay');
+    const timerStatus = document.getElementById('timerStatus');
+    const taskSelector = document.getElementById('taskSelector');
+    const currentTaskLabel = document.getElementById('currentTaskLabel');
+    const pomodoroToggle = document.getElementById('pomodoroToggle');
+    const focusDurationInput = document.getElementById('focusDuration');
+    const breakDurationInput = document.getElementById('breakDuration');
+    const breathOverlay = document.getElementById('breathOverlay');
+
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const btnStop = document.getElementById('btnStop');
+    const wrapStart = document.getElementById('wrapStart');
+    const wrapPause = document.getElementById('wrapPause');
+    const wrapStop = document.getElementById('wrapStop');
+
+    let selectedTask = null;
+
+    // 呼吸灯控制
+    function updateBreathLight(remainingSeconds) {
+      const isPomodoro = STATE.timer.pomodoroActive;
+      const isRunning = STATE.timer.running && !STATE.timer.paused;
+      const active = isRunning && isPomodoro && STATE.timer.pomodoroPhase === 'focus' &&
+        remainingSeconds !== null && remainingSeconds <= 180 && remainingSeconds > 0;
+      breathOverlay.classList.toggle('active', active);
+    }
+
+    // 动态背景
+    function updateBackgroundState(state) {
+      document.body.classList.remove('state-focus', 'state-break');
+      if (state === 'focus') document.body.classList.add('state-focus');
+      else if (state === 'break') document.body.classList.add('state-break');
+    }
+
+    // 按钮状态
+    function updateButtons() {
+      const running = STATE.timer.running;
+      const paused = STATE.timer.paused;
+      const pomoActive = STATE.timer.pomodoroActive;
+
+      [wrapStart, wrapPause, wrapStop].forEach(w => {
+        w.classList.remove('btn-wrapper-enter', 'btn-wrapper-leave');
+      });
+
+      if (pomoActive || running || paused) {
+        wrapStart.classList.remove('visible');
+        wrapStart.classList.add('hidden');
+        wrapPause.classList.remove('hidden');
+        wrapPause.classList.add('visible', 'btn-wrapper-enter');
+        wrapStop.classList.remove('hidden');
+        wrapStop.classList.add('visible', 'btn-wrapper-enter');
+
+        if (paused) {
+          btnPause.textContent = '▶️ 继续';
+        } else {
+          btnPause.textContent = '⏸️ 暂停';
+        }
+      } else {
+        wrapStart.classList.remove('hidden');
+        wrapStart.classList.add('visible', 'btn-wrapper-enter');
+        wrapPause.classList.remove('visible');
+        wrapPause.classList.add('hidden', 'btn-wrapper-leave');
+        wrapStop.classList.remove('visible');
+        wrapStop.classList.add('hidden', 'btn-wrapper-leave');
+        btnPause.textContent = '⏸️ 暂停';
+        breathOverlay.classList.remove('active');
+        updateBackgroundState('idle');
+      }
+    }
+
+    // 任务按钮
+    function renderTaskButtons() {
+      taskSelector.innerHTML = '';
+      STATE.categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'task-btn';
+        btn.dataset.task = cat.name;
+        btn.innerHTML = `<span class="color-dot" style="background:${cat.color};"></span> ${cat.name}`;
+        btn.addEventListener('click', () => {
+          if (STATE.timer.running && !STATE.timer.paused) {
+            showToast('⏳ 专注中，请先暂停或结束再切换任务');
+            return;
+          }
+          document.querySelectorAll('.task-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          selectedTask = cat.name;
+          currentTaskLabel.textContent = selectedTask;
+          STATE.timer.task = selectedTask;
+          clearVoiceConfirm();
+        });
+        taskSelector.appendChild(btn);
+      });
+      const first = taskSelector.querySelector('.task-btn');
+      if (first) { first.classList.add('active');
+        selectedTask = first.dataset.task;
+        currentTaskLabel.textContent = selectedTask;
+        STATE.timer.task = selectedTask; } else { currentTaskLabel.textContent = '无分类'; }
+    }
+
+    // 计时显示
+    function updateTimerDisplay() {
+      let ms = STATE.timer.elapsed;
+      if (STATE.timer.running && !STATE.timer.paused) ms += Date.now() - STATE.timer.startTime;
+      timerDisplay.textContent = formatTime(ms);
+    }
+
+    let timerAnimationId = null;
+
+    function startTimerLoop() {
+      if (timerAnimationId) cancelAnimationFrame(timerAnimationId);
+
+      function loop() {
+        updateTimerDisplay();
+        timerAnimationId = requestAnimationFrame(loop);
+      }
+      loop();
+    }
+
+    function stopTimerLoop() { if (timerAnimationId) { cancelAnimationFrame(timerAnimationId);
+        timerAnimationId = null; } }
+
+    // 番茄钟
+    function startPomodoroCountdown() {
+      STATE.timer.running = true;
+      STATE.timer.paused = false;
+      STATE.timer.pomodoroActive = true;
+      updateButtons();
+      updateBackgroundState('focus');
+
+      if (STATE.timer.pomodoroIntervalId) clearInterval(STATE.timer.pomodoroIntervalId);
+
+      const updateDisplay = () => {
+        const mins = Math.floor(STATE.timer.pomodoroRemaining / 60);
+        const secs = STATE.timer.pomodoroRemaining % 60;
+        timerDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        timerDisplay.classList.add('pulse');
+        setTimeout(() => timerDisplay.classList.remove('pulse'), 500);
+        updateBreathLight(STATE.timer.pomodoroRemaining);
+      };
+
+      updateDisplay();
+
+      STATE.timer.pomodoroIntervalId = setInterval(() => {
+        STATE.timer.pomodoroRemaining--;
+        if (STATE.timer.pomodoroRemaining <= 0) {
+          clearInterval(STATE.timer.pomodoroIntervalId);
+          STATE.timer.pomodoroIntervalId = null;
+          updateBreathLight(0);
+          if (STATE.timer.pomodoroPhase === 'focus') {
+            const task = STATE.timer.task || selectedTask || '其他';
+            const totalMs = (parseInt(focusDurationInput.value) || 25) * 60000;
+            const record = {
+              id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              date: dateKey(new Date()),
+              start: new Date().toISOString(),
+              end: new Date().toISOString(),
+              duration: totalMs,
+              task: task,
+              note: '番茄钟专注',
+              image: null,
+            };
+            addRecord(record);
+            renderTodayRecords();
+            showToast('🍅 专注结束，开始休息');
+            sendNotification('🍅 专注结束', '开始休息，放松一下吧！');
+
+            STATE.timer.pomodoroPhase = 'break';
+            STATE.timer.pomodoroRemaining = (parseInt(breakDurationInput.value) || 5) * 60;
+            timerStatus.textContent = '☕ 休息中...';
+            updateBackgroundState('break');
+            startPomodoroCountdown();
+          } else {
+            STATE.timer.pomodoroActive = false;
+            STATE.timer.running = false;
+            STATE.timer.paused = false;
+            timerDisplay.textContent = '00:00';
+            timerStatus.textContent = '☕ 休息结束';
+            updateButtons();
+            updateBackgroundState('idle');
+            showToast('☕ 休息结束！');
+            sendNotification('☕ 休息结束', '可以开始新的专注了！');
+          }
+          return;
+        }
+        updateDisplay();
+      }, 1000);
+    }
+
+    // 开始
+    function startTimer() {
+      if (!selectedTask) { showToast('⚠️ 请先选择任务类别'); return; }
+      if (STATE.timer.running) return;
+
+      if (pomodoroToggle.checked) {
+        const focusMin = parseInt(focusDurationInput.value) || 25;
+        STATE.timer.pomodoroActive = true;
+        STATE.timer.pomodoroPhase = 'focus';
+        STATE.timer.pomodoroRemaining = focusMin * 60;
+        timerStatus.textContent = '🍅 专注中...';
+        startPomodoroCountdown();
+        return;
+      }
+
+      if (STATE.timer.paused) {
+        STATE.timer.paused = false;
+        STATE.timer.startTime = Date.now();
+        STATE.timer.running = true;
+        timerStatus.textContent = '▶️ 专注中...';
+        startTimerLoop();
+        updateButtons();
+        updateBackgroundState('focus');
+        showToast('▶️ 继续专注！');
+        return;
+      }
+
+      STATE.timer.running = true;
+      STATE.timer.paused = false;
+      STATE.timer.startTime = Date.now();
+      STATE.timer.elapsed = 0;
+      STATE.timer.startedAt = new Date();
+      timerStatus.textContent = '▶️ 专注中...';
+      startTimerLoop();
+      updateButtons();
+      updateBackgroundState('focus');
+      showToast(`🚀 开始专注：${selectedTask}`);
+    }
+
+    // 暂停/继续
+    function togglePause() {
+      if (STATE.timer.pomodoroActive) {
+        if (STATE.timer.running && !STATE.timer.paused) {
+          if (STATE.timer.pomodoroIntervalId) {
+            clearInterval(STATE.timer.pomodoroIntervalId);
+            STATE.timer.pomodoroIntervalId = null;
+          }
+          STATE.timer.running = false;
+          STATE.timer.paused = true;
+          timerStatus.textContent = '⏸️ 番茄钟暂停';
+          updateButtons();
+          updateBreathLight(0);
+          updateBackgroundState('idle');
+          showToast('⏸️ 番茄钟暂停');
+        } else if (STATE.timer.paused) {
+          STATE.timer.paused = false;
+          STATE.timer.running = true;
+          timerStatus.textContent = '🍅 专注中...';
+          if (STATE.timer.pomodoroIntervalId) clearInterval(STATE.timer.pomodoroIntervalId);
+          const updateDisplay = () => {
+            const mins = Math.floor(STATE.timer.pomodoroRemaining / 60);
+            const secs = STATE.timer.pomodoroRemaining % 60;
+            timerDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          };
+          STATE.timer.pomodoroIntervalId = setInterval(() => {
+            STATE.timer.pomodoroRemaining--;
+            if (STATE.timer.pomodoroRemaining <= 0) {
+              clearInterval(STATE.timer.pomodoroIntervalId);
+              STATE.timer.pomodoroIntervalId = null;
+              updateBreathLight(0);
+              if (STATE.timer.pomodoroPhase === 'focus') {
+                const task = STATE.timer.task || selectedTask || '其他';
+                const totalMs = (parseInt(focusDurationInput.value) || 25) * 60000;
+                const record = {
+                  id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                  date: dateKey(new Date()),
+                  start: new Date().toISOString(),
+                  end: new Date().toISOString(),
+                  duration: totalMs,
+                  task: task,
+                  note: '番茄钟专注',
+                  image: null,
+                };
+                addRecord(record);
+                renderTodayRecords();
+                showToast('🍅 专注结束，开始休息');
+                sendNotification('🍅 专注结束', '开始休息，放松一下吧！');
+                STATE.timer.pomodoroPhase = 'break';
+                STATE.timer.pomodoroRemaining = (parseInt(breakDurationInput.value) || 5) * 60;
+                timerStatus.textContent = '☕ 休息中...';
+                updateBackgroundState('break');
+                startPomodoroCountdown();
+              } else {
+                STATE.timer.pomodoroActive = false;
+                STATE.timer.running = false;
+                STATE.timer.paused = false;
+                timerDisplay.textContent = '00:00';
+                timerStatus.textContent = '☕ 休息结束';
+                updateButtons();
+                updateBackgroundState('idle');
+                showToast('☕ 休息结束！');
+                sendNotification('☕ 休息结束', '可以开始新的专注了！');
+              }
+              return;
+            }
+            updateDisplay();
+            updateBreathLight(STATE.timer.pomodoroRemaining);
+          }, 1000);
+          updateButtons();
+          updateBackgroundState('focus');
+          showToast('▶️ 继续番茄钟');
+        }
+        return;
+      }
+
+      if (!STATE.timer.running && !STATE.timer.paused) return;
+      if (STATE.timer.running && !STATE.timer.paused) {
+        STATE.timer.paused = true;
+        STATE.timer.elapsed += Date.now() - STATE.timer.startTime;
+        STATE.timer.running = false;
+        timerStatus.textContent = '⏸️ 已暂停';
+        stopTimerLoop();
+        updateTimerDisplay();
+        updateButtons();
+        updateBackgroundState('idle');
+        showToast('⏸️ 已暂停');
+      } else if (STATE.timer.paused) {
+        STATE.timer.paused = false;
+        STATE.timer.startTime = Date.now();
+        STATE.timer.running = true;
+        timerStatus.textContent = '▶️ 专注中...';
+        startTimerLoop();
+        updateButtons();
+        updateBackgroundState('focus');
+        showToast('▶️ 继续专注！');
+      }
+    }
+
+    // 结束
+    function stopTimer() {
+      if (STATE.timer.pomodoroActive) {
+        if (STATE.timer.pomodoroIntervalId) {
+          clearInterval(STATE.timer.pomodoroIntervalId);
+          STATE.timer.pomodoroIntervalId = null;
+        }
+        STATE.timer.pomodoroActive = false;
+        STATE.timer.running = false;
+        STATE.timer.paused = false;
+        timerDisplay.textContent = '00:00';
+        timerStatus.textContent = '⏹️ 已结束';
+        updateButtons();
+        updateBreathLight(0);
+        updateBackgroundState('idle');
+        showToast('⏹️ 番茄钟已结束');
+        return;
+      }
+
+      if (!STATE.timer.running && !STATE.timer.paused) {
+        if (STATE.timer.elapsed <= 0) { showToast('⚠️ 还没有开始计时'); return; }
+      }
+      let totalMs = STATE.timer.elapsed;
+      if (STATE.timer.running && !STATE.timer.paused) totalMs += Date.now() - STATE.timer.startTime;
+      if (totalMs < 1000) { showToast('⏳ 专注时间太短'); return; }
+      const task = STATE.timer.task || selectedTask || '其他';
+      const record = {
+        id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        date: dateKey(new Date()),
+        start: STATE.timer.startedAt ? STATE.timer.startedAt.toISOString() : new Date().toISOString(),
+        end: new Date().toISOString(),
+        duration: totalMs,
+        task: task,
+        note: '',
+        image: null,
+      };
+      addRecord(record);
+      STATE.timer.running = false;
+      STATE.timer.paused = false;
+      STATE.timer.startTime = null;
+      STATE.timer.elapsed = 0;
+      STATE.timer.startedAt = null;
+      stopTimerLoop();
+      timerDisplay.textContent = '00:00:00';
+      timerStatus.textContent = '✅ 已记录';
+      updateButtons();
+      updateBreathLight(0);
+      updateBackgroundState('idle');
+      showToast(`✅ 完成专注：${formatDuration(totalMs)}`);
+      renderTodayRecords();
+      sendNotification('✅ 专注完成', `本次专注 ${formatDuration(totalMs)}`);
+    }
+
+    // 绑定事件
+    btnStart.addEventListener('click', startTimer);
+    btnPause.addEventListener('click', togglePause);
+    btnStop.addEventListener('click', stopTimer);
+
+    // 键盘快捷键
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      if (e.key === ' ' || e.key === 'Space') {
+        e.preventDefault();
+        if (STATE.timer.running && !STATE.timer.paused) {
+          togglePause();
+        } else if (STATE.timer.paused || !STATE.timer.running) {
+          startTimer();
+        }
+      }
+      if (e.key === 's' || e.key === 'S') {
+        if (STATE.timer.running || STATE.timer.paused || STATE.timer.elapsed > 0) stopTimer();
+      }
+      if (e.key === 'd' || e.key === 'D') toggleTheme();
+    });
+
+    // 页面可见性自动暂停
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (STATE.timer.running && !STATE.timer.paused) {
+          togglePause();
+          showToast('⏸️ 页面已隐藏，已自动暂停');
+        }
+      }
+    });
+
+    // ----- 本地 MP3 播放器 -----
+    const mp3Input = document.getElementById('mp3FileInput');
+    const playBtn = document.getElementById('playBtn');
+    const progressBar = document.getElementById('progressBar');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const volumeControl = document.getElementById('volumeControl');
+    const fileNameSpan = document.getElementById('fileName');
+
+    let audio = null;
+    let isPlaying = false;
+    let progressInterval = null;
+
+    function formatTimeMMSS(seconds) {
+      const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const s = String(Math.floor(seconds % 60)).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function loadMP3(file) {
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+        audio = null;
+        clearInterval(progressInterval);
+        isPlaying = false;
+        playBtn.textContent = '▶️';
+      }
+      if (!file) return;
+      fileNameSpan.textContent = file.name;
+      const url = URL.createObjectURL(file);
+      audio = new Audio(url);
+      audio.volume = volumeControl.value / 100;
+
+      audio.addEventListener('loadedmetadata', () => {
+        progressBar.max = 100;
+        progressBar.value = 0;
+        timeDisplay.textContent = `00:00 / ${formatTimeMMSS(audio.duration)}`;
+      });
+
+      audio.addEventListener('timeupdate', () => {
+        if (audio.duration) {
+          const pct = (audio.currentTime / audio.duration) * 100;
+          progressBar.value = pct;
+          timeDisplay.textContent = `${formatTimeMMSS(audio.currentTime)} / ${formatTimeMMSS(audio.duration)}`;
+        }
+      });
+
+      audio.addEventListener('ended', () => {
+        clearInterval(progressInterval);
+        isPlaying = false;
+        playBtn.textContent = '▶️';
+        progressBar.value = 0;
+        timeDisplay.textContent = `00:00 / ${formatTimeMMSS(audio.duration)}`;
+      });
+
+      // 播放
+      audio.play().then(() => {
+        isPlaying = true;
+        playBtn.textContent = '⏸️';
+        progressInterval = setInterval(() => {
+          if (audio && !audio.paused) {
+            const pct = (audio.currentTime / audio.duration) * 100;
+            progressBar.value = pct;
+            timeDisplay.textContent = `${formatTimeMMSS(audio.currentTime)} / ${formatTimeMMSS(audio.duration)}`;
+          }
+        }, 500);
+      }).catch(err => {
+        showToast('⚠️ 无法播放，请检查文件格式');
+        console.error(err);
+      });
+    }
+
+    mp3Input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file && file.type === 'audio/mpeg') {
+        loadMP3(file);
+      } else {
+        showToast('⚠️ 请选择 MP3 文件');
+        mp3Input.value = '';
+      }
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (!audio) {
+        showToast('⚠️ 请先导入 MP3 文件');
+        return;
+      }
+      if (isPlaying) {
+        audio.pause();
+        isPlaying = false;
+        playBtn.textContent = '▶️';
+        clearInterval(progressInterval);
+      } else {
+        audio.play().then(() => {
+          isPlaying = true;
+          playBtn.textContent = '⏸️';
+          progressInterval = setInterval(() => {
+            if (audio && !audio.paused) {
+              const pct = (audio.currentTime / audio.duration) * 100;
+              progressBar.value = pct;
+              timeDisplay.textContent = `${formatTimeMMSS(audio.currentTime)} / ${formatTimeMMSS(audio.duration)}`;
+            }
+          }, 500);
+        }).catch(err => {
+          showToast('⚠️ 播放失败');
+        });
+      }
+    });
+
+    progressBar.addEventListener('input', () => {
+      if (audio && audio.duration) {
+        const seekTime = (progressBar.value / 100) * audio.duration;
+        audio.currentTime = seekTime;
+      }
+    });
+
+    volumeControl.addEventListener('input', () => {
+      if (audio) {
+        audio.volume = volumeControl.value / 100;
+      }
+    });
+
+    // ----- 语音识别 -----
+    const voiceBtn = document.getElementById('voiceBtn');
+    const voiceStatus = document.getElementById('voiceStatus');
+    const voiceLang = document.getElementById('voiceLang');
+    const keywordInput = document.getElementById('keywordInput');
+    const keywordTriggerBtn = document.getElementById('keywordTriggerBtn');
+    const voiceConfirm = document.getElementById('voiceConfirm');
+    const confirmHint = document.getElementById('confirmHint');
+    const confirmYes = document.getElementById('confirmYes');
+    const confirmNo = document.getElementById('confirmNo');
+
+    let recognition = null;
+    let isListening = false;
+
+    function initSpeech() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        voiceStatus.textContent = '❌ 浏览器不支持语音识别';
+        voiceBtn.disabled = true;
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        isListening = true;
+        voiceBtn.classList.add('listening');
+        voiceStatus.textContent = '🎤 正在聆听...';
+      };
+
+      recognition.onresult = (event) => {
+        const result = event.results[0][0].transcript.trim();
+        voiceStatus.textContent = `识别结果：${result}`;
+        const matched = findBestMatch(result);
+        if (matched) {
+          showVoiceConfirm(matched, result);
+        } else {
+          voiceStatus.textContent = `未匹配到分类：${result}`;
+          showToast(`未匹配到分类，请手动选择或重新说`);
+          voiceBtn.classList.remove('listening');
+          isListening = false;
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('语音识别错误:', event.error);
+        voiceStatus.textContent = `⚠️ 识别错误：${event.error}`;
+        voiceBtn.classList.remove('listening');
+        isListening = false;
+        if (event.error === 'not-allowed') {
+          showToast('请允许浏览器使用麦克风权限');
+        }
+      };
+
+      recognition.onend = () => {
+        voiceBtn.classList.remove('listening');
+        isListening = false;
+        if (voiceStatus.textContent === '🎤 正在聆听...') {
+          voiceStatus.textContent = '⏹️ 已停止聆听';
+        }
+      };
+    }
+
+    function findBestMatch(text) {
+      if (!text) return null;
+      const lower = text.trim().toLowerCase();
+      for (const cat of STATE.categories) {
+        if (cat.name.toLowerCase() === lower) return cat;
+      }
+      let best = null;
+      let bestScore = 0;
+      STATE.categories.forEach(cat => {
+        const words = getCategoryMatchWords(cat.name);
+        let score = 0;
+        words.forEach(w => {
+          const wl = w.toLowerCase();
+          if (lower.includes(wl) || wl.includes(lower)) {
+            score += 10;
+          }
+        });
+        if (score > bestScore) { bestScore = score;
+          best = cat; }
+      });
+      if (best && bestScore >= 5) return best;
+      return null;
+    }
+
+    function showVoiceConfirm(cat, originalText) {
+      STATE.pendingVoiceMatch = cat;
+      confirmHint.textContent = `识别到 “${originalText}” → 分类：“${cat.name}”，确认开始？`;
+      voiceConfirm.classList.add('show');
+      voiceBtn.classList.remove('listening');
+      isListening = false;
+    }
+
+    function clearVoiceConfirm() {
+      voiceConfirm.classList.remove('show');
+      STATE.pendingVoiceMatch = null;
+    }
+
+    confirmYes.addEventListener('click', () => {
+      if (STATE.pendingVoiceMatch) {
+        const cat = STATE.pendingVoiceMatch;
+        selectTask(cat.name);
+        startTimer();
+        clearVoiceConfirm();
+        voiceStatus.textContent = `✅ 已开始：${cat.name}`;
+      }
+    });
+
+    confirmNo.addEventListener('click', () => {
+      clearVoiceConfirm();
+      voiceStatus.textContent = '已取消';
+    });
+
+    voiceBtn.addEventListener('click', () => {
+      if (!recognition) {
+        initSpeech();
+        if (!recognition) return;
+      }
+      if (voiceConfirm.classList.contains('show')) {
+        clearVoiceConfirm();
+      }
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      const lang = voiceLang.value;
+      if (lang === 'auto') {
+        recognition.lang = 'zh-CN';
+      } else {
+        recognition.lang = lang;
+      }
+      try {
+        recognition.start();
+      } catch (e) {}
+    });
+
+    keywordTriggerBtn.addEventListener('click', () => {
+      const text = keywordInput.value.trim();
+      if (!text) { showToast('请输入分类名称或别名'); return; }
+      const matched = findBestMatch(text);
+      if (matched) {
+        selectTask(matched.name);
+        startTimer();
+        keywordInput.value = '';
+        voiceStatus.textContent = `✅ 关键词触发：${matched.name}`;
+      } else {
+        showToast(`未匹配到分类：${text}`);
+        voiceStatus.textContent = `未匹配到分类：${text}`;
+      }
+    });
+    keywordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') keywordTriggerBtn.click();
+    });
+
+    function selectTask(name) {
+      document.querySelectorAll('.task-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.task === name);
+      });
+      selectedTask = name;
+      currentTaskLabel.textContent = name;
+      STATE.timer.task = name;
+    }
+
+    initSpeech();
+
+    // ----- UI 渲染 -----
+    function renderTodayRecords() {
+      const container = document.getElementById('todayRecords');
+      const countEl = document.getElementById('todayCount');
+      const today = getToday();
+      const records = getRecordsForDate(today);
+      countEl.textContent = `${records.length} 条`;
+      if (!records.length) {
+        container.innerHTML =
+          `<div class="empty-state" style="padding:16px 0;"><span class="text">今天还没有专注记录</span></div>`;
+        return;
+      }
+      const sorted = [...records].sort((a, b) => new Date(b.start) - new Date(a.start));
+      container.innerHTML = sorted.map(r => {
+        const start = new Date(r.start);
+        const timeStr = `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
+        const color = getCategoryColor(r.task);
+        return `<div class="record-item"><span><span class="tag" style="background:${color};">${r.task}</span><span class="time">${timeStr}</span></span><span class="duration">${formatDuration(r.duration)}</span></div>`;
+      }).join('');
+    }
+
+    function renderOverview() {
+      const records = STATE.records;
+      const totalSessions = records.length;
+      const totalMs = records.reduce((sum, r) => sum + r.duration, 0);
+      const totalHours = totalMs / 3600000;
+      const daysActive = new Set(records.map(r => r.date)).size;
+      const avgDaily = daysActive > 0 ? totalHours / daysActive : 0;
+      const streak = getStreakDays(records);
+
+      document.getElementById('totalSessions').textContent = totalSessions;
+      document.getElementById('totalHours').innerHTML = `${totalHours.toFixed(1)} <span class="unit">h</span>`;
+      document.getElementById('avgDaily').innerHTML = `${avgDaily.toFixed(2)} <span class="unit">h</span>`;
+      document.getElementById('streakDays').textContent = streak;
+
+      // 今日目标
+      const todayRecords = getRecordsForDate(getToday());
+      const todayMs = todayRecords.reduce((s, r) => s + r.duration, 0);
+      const todayMinutes = Math.round(todayMs / 60000);
+      const goal = STATE.settings.dailyGoal || 120;
+      const pct = Math.min(100, Math.round((todayMinutes / goal) * 100));
+      document.getElementById('todayGoalMinutes').textContent = todayMinutes;
+      document.getElementById('dailyGoalTarget').textContent = goal;
+      document.getElementById('goalProgressText').textContent = `${pct}%`;
+      const ring1 = document.getElementById('goalProgressRing');
+      const circumference = 314.16;
+      ring1.style.strokeDashoffset = circumference - (pct / 100) * circumference;
+
+      // 累计目标
+      const targetHours = STATE.settings.totalGoal || 100;
+      document.getElementById('totalGoalLabel').textContent = `目标 ${targetHours}h`;
+      document.getElementById('totalGoalLabelSmall').textContent = `${targetHours}h 目标`;
+      const totalHoursPct = Math.min(100, Math.round((totalHours / targetHours) * 100));
+      document.getElementById('totalHoursPercent').textContent = `${totalHoursPct}%`;
+      document.getElementById('totalHoursDisplay').textContent = totalHours.toFixed(1);
+      const ring2 = document.getElementById('totalHoursRing');
+      ring2.style.strokeDashoffset = circumference - (totalHoursPct / 100) * circumference;
+
+      // 趋势图
+      const trendData = [],
+        trendLabels = [];
+      const today = getToday();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = dateKey(d);
+        const dayMs = records.filter(r => r.date === key).reduce((s, r) => s + r.duration, 0);
+        trendData.push(dayMs / 3600000);
+        trendLabels.push(`${d.getMonth()+1}/${d.getDate()}`);
+      }
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      if (STATE.charts.trend) STATE.charts.trend.destroy();
+      STATE.charts.trend = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: trendLabels, datasets: [{ label: '专注时长 (h)', data: trendData,
+            backgroundColor: 'rgba(255,107,107,0.7)', borderColor: '#FF6B6B', borderWidth: 2, borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { callback: v => v + 'h' } } } }
+      });
+
+      // 总览饼图
+      const dist = getTaskDistribution(records);
+      const pieCtx = document.getElementById('overviewPieChart').getContext('2d');
+      if (STATE.charts.overviewPie) STATE.charts.overviewPie.destroy();
+      const finalLabels = [],
+        finalData = [],
+        finalColors = [];
+      for (const cat of STATE.categories) {
+        if (dist[cat.name] !== undefined && dist[cat.name] > 0) {
+          finalLabels.push(cat.name);
+          finalData.push(dist[cat.name]);
+          finalColors.push(cat.color);
+        }
+      }
+      const extraTasks = new Set(records.map(r => r.task));
+      for (const task of extraTasks) {
+        if (!STATE.categories.some(c => c.name === task)) {
+          const val = records.filter(r => r.task === task).reduce((s, r) => s + r.duration, 0);
+          if (val > 0) { finalLabels.push(task);
+            finalData.push(val);
+            finalColors.push('#6B7280'); }
+        }
+      }
+      STATE.charts.overviewPie = new Chart(pieCtx, {
+        type: 'doughnut',
+        data: { labels: finalLabels, datasets: [{ data: finalData, backgroundColor: finalColors, borderWidth: 2,
+            borderColor: '#fff' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          cutout: '55%' }
+      });
+      const legendContainer = document.getElementById('overviewLegend');
+      const total = finalData.reduce((a, b) => a + b, 0);
+      legendContainer.innerHTML = finalLabels.map((label, i) => {
+        const pct = total > 0 ? ((finalData[i] / total) * 100).toFixed(1) : 0;
+        const hours = (finalData[i] / 3600000).toFixed(2);
+        return `<div class="legend-item"><span class="dot" style="background:${finalColors[i]};"></span><div class="info"><span>${label}</span><span>${hours}h (${pct}%)</span></div></div>`;
+      }).join('');
+
+      renderBadges();
+    }
+
+    // 报告生成
+    function generateReport(type) {
+      const now = new Date();
+      let start, end;
+      if (type === 'daily') {
+        start = getToday();
+        end = new Date(start);
+        end.setHours(23, 59, 59, 999);
+      } else {
+        start = getWeekStart(now);
+        end = getWeekEnd(now);
+      }
+      const records = getRecordsInRange(start, end);
+      const totalMs = records.reduce((s, r) => s + r.duration, 0);
+      const totalHours = totalMs / 3600000;
+      const sessions = records.length;
+      const avgDuration = sessions > 0 ? totalMs / sessions : 0;
+      const dist = getTaskDistribution(records);
+      let detail = '';
+      for (const [task, ms] of Object.entries(dist)) {
+        if (ms > 0) detail += `${task}: ${(ms/3600000).toFixed(2)}h\n`;
+      }
+      const report =
+        `📊 ${type === 'daily' ? '今日' : '本周'} 专注报告\n──────────────────────\n🎯 专注次数：${sessions}\n⏱️ 总时长：${totalHours.toFixed(2)} 小时\n📈 平均每次：${(avgDuration/60000).toFixed(1)} 分钟\n──────────────────────\n📂 科目分布：\n${detail || '无记录'}\n──────────────────────\n📅 报告生成：${formatDate(now)} ${now.toLocaleTimeString()}`;
+      return report;
+    }
+
+    function copyReport(type) {
+      const report = generateReport(type);
+      navigator.clipboard.writeText(report).then(() => {
+        showToast('📋 报告已复制到剪贴板');
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = report;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('📋 报告已复制');
+      });
+    }
+
+    document.getElementById('reportDailyBtn').addEventListener('click', () => copyReport('daily'));
+    document.getElementById('reportWeeklyBtn').addEventListener('click', () => copyReport('weekly'));
+
+    // 明细渲染
+    function renderDaily() {
+      const date = STATE.selectedDate;
+      const dateStr = formatDate(date);
+      document.getElementById('dayLabel').textContent = dateStr;
+
+      let records = getRecordsForDate(date);
+      const search = STATE.dailyFilter.search.toLowerCase();
+      const taskFilter = STATE.dailyFilter.task;
+      const dateFilter = STATE.dailyFilter.date;
+
+      if (search) records = records.filter(r => r.task.toLowerCase().includes(search));
+      if (taskFilter) records = records.filter(r => r.task === taskFilter);
+      if (dateFilter) records = records.filter(r => r.date === dateFilter);
+
+      const totalMs = records.reduce((s, r) => s + r.duration, 0);
+      document.getElementById('dailySessions').textContent = records.length;
+      document.getElementById('dailyTotal').innerHTML = `${Math.round(totalMs / 60000)} <span class="unit">min</span>`;
+      document.getElementById('dailyRecordCount').textContent = `${records.length} 条`;
+
+      const select = document.getElementById('dailyFilterTask');
+      const allTasks = new Set(getRecordsForDate(date).map(r => r.task));
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">全部任务</option>';
+      allTasks.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        select.appendChild(opt);
+      });
+      select.value = currentVal;
+
+      const container = document.getElementById('dailyRecordList');
+      if (!records.length) {
+        container.innerHTML =
+          `<div class="empty-state" style="padding:20px 0;"><span class="text">没有匹配的记录</span></div>`;
+        return;
+      }
+      const sorted = [...records].sort((a, b) => new Date(a.start) - new Date(b.start));
+      container.innerHTML = sorted.map(r => {
+        const start = new Date(r.start),
+          end = new Date(r.end);
+        const timeStr =
+          `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')} - ${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`;
+        const color = getCategoryColor(r.task);
+        return `<div class="record-item"><span><span class="tag" style="background:${color};">${r.task}</span><span class="time">${timeStr}</span></span><span class="duration">${formatDuration(r.duration)}</span></div>`;
+      }).join('');
+    }
+
+    document.getElementById('dayPrev').addEventListener('click', () => { STATE.selectedDate.setDate(STATE.selectedDate
+        .getDate() - 1);
+      renderDaily(); });
+    document.getElementById('dayNext').addEventListener('click', () => { STATE.selectedDate.setDate(STATE.selectedDate
+        .getDate() + 1);
+      renderDaily(); });
+    document.getElementById('dayToday').addEventListener('click', () => { STATE.selectedDate = getToday();
+      renderDaily(); });
+
+    document.getElementById('dailySearchInput').addEventListener('input', (e) => {
+      STATE.dailyFilter.search = e.target.value;
+      renderDaily();
+    });
+    document.getElementById('dailyFilterTask').addEventListener('change', (e) => {
+      STATE.dailyFilter.task = e.target.value;
+      renderDaily();
+    });
+    document.getElementById('dailyFilterDate').addEventListener('change', (e) => {
+      STATE.dailyFilter.date = e.target.value;
+      renderDaily();
+    });
+    document.getElementById('dailyFilterClear').addEventListener('click', () => {
+      document.getElementById('dailySearchInput').value = '';
+      document.getElementById('dailyFilterTask').value = '';
+      document.getElementById('dailyFilterDate').value = '';
+      STATE.dailyFilter = { search: '', task: '', date: '' };
+      renderDaily();
+    });
+
+    // 饼图
+    function getPieRecords() {
+      const range = STATE.pieRange;
+      let start, end;
+      const now = new Date();
+      if (range === 'day') { start = getToday();
+        end = new Date(start);
+        end.setHours(23, 59, 59, 999); } else if (range === 'week') { start = getWeekStart(now);
+        end = getWeekEnd(now); } else if (range === 'month') { start = getMonthStart(now);
+        end = getMonthEnd(now); } else if (range === 'custom') {
+        if (STATE.customStart && STATE.customEnd) { start = new Date(STATE.customStart);
+          start.setHours(0, 0, 0, 0);
+          end = new Date(STATE.customEnd);
+          end.setHours(23, 59, 59, 999); } else { start = getToday();
+          end = new Date(start);
+          end.setHours(23, 59, 59, 999); }
+      }
+      return getRecordsInRange(start, end);
+    }
+
+    function renderPie() {
+      const records = getPieRecords();
+      const dist = getTaskDistribution(records);
+      const total = records.reduce((s, r) => s + r.duration, 0);
+      document.getElementById('pieRecordCount').textContent = `${records.length} 条`;
+      const ctx = document.getElementById('pieChart').getContext('2d');
+      if (STATE.charts.pie) STATE.charts.pie.destroy();
+      const labels = [],
+        data = [],
+        colors = [];
+      for (const cat of STATE.categories) {
+        if (dist[cat.name] !== undefined && dist[cat.name] > 0) {
+          labels.push(cat.name);
+          data.push(dist[cat.name]);
+          colors.push(cat.color);
+        }
+      }
+      const allTasks = new Set(records.map(r => r.task));
+      for (const task of allTasks) {
+        if (!STATE.categories.some(c => c.name === task)) {
+          const val = records.filter(r => r.task === task).reduce((s, r) => s + r.duration, 0);
+          if (val > 0) { labels.push(task);
+            data.push(val);
+            colors.push('#6B7280'); }
+        }
+      }
+      STATE.charts.pie = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 3, borderColor: '#fff' }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const val = context.parsed;
+                  const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                  return `${label}: ${formatDuration(val)} (${pct}%)`;
+                }
+              }
+            }
+          },
+          cutout: '50%'
+        }
+      });
+      const legendContainer = document.getElementById('pieLegend');
+      legendContainer.innerHTML = labels.map((label, i) => {
+        const val = data[i];
+        const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+        return `<div class="legend-item"><span class="dot" style="background:${colors[i]};"></span><div class="info"><span>${label}</span><span class="pct">${formatDuration(val)} (${pct}%)</span></div></div>`;
+      }).join('');
+      const container = document.getElementById('pieRecordList');
+      if (!records.length) {
+        container.innerHTML =
+          `<div class="empty-state" style="padding:20px 0;"><span class="text">没有匹配的记录</span></div>`;
+        return;
+      }
+      const sorted = [...records].sort((a, b) => new Date(b.start) - new Date(a.start));
+      container.innerHTML = sorted.slice(0, 50).map(r => {
+        const start = new Date(r.start);
+        const timeStr =
+          `${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`;
+        const color = getCategoryColor(r.task);
+        return `<div class="record-item"><span><span class="tag" style="background:${color};">${r.task}</span><span class="time">${r.date} ${timeStr}</span></span><span class="duration">${formatDuration(r.duration)}</span></div>`;
+      }).join('');
+      if (records.length > 50) container.innerHTML +=
+        `<div style="text-align:center;padding:8px;color:var(--text-light);font-size:13px;">... 共 ${records.length} 条记录，仅显示最近50条</div>`;
+    }
+
+    document.querySelectorAll('#pieTabs .tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#pieTabs .tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        STATE.pieRange = tab.dataset.range;
+        const picker = document.getElementById('customRangePicker');
+        picker.style.display = STATE.pieRange === 'custom' ? 'flex' : 'none';
+        if (STATE.pieRange === 'custom') {
+          const end = new Date();
+          const start = new Date();
+          start.setDate(start.getDate() - 6);
+          document.getElementById('rangeStart').value = formatDate(start);
+          document.getElementById('rangeEnd').value = formatDate(end);
+          STATE.customStart = formatDate(start);
+          STATE.customEnd = formatDate(end);
+        }
+        renderPie();
+      });
+    });
+    document.getElementById('rangeApplyBtn').addEventListener('click', () => {
+      const start = document.getElementById('rangeStart').value;
+      const end = document.getElementById('rangeEnd').value;
+      if (start && end) { STATE.customStart = start;
+        STATE.customEnd = end;
+        renderPie();
+        showToast('📅 已应用自定义范围'); } else showToast('⚠️ 请选择完整的日期范围');
+    });
+    document.getElementById('pieShareBtn').addEventListener('click', () => {
+      const canvas = document.getElementById('pieChart');
+      if (!canvas) return;
+      try { const link = document.createElement('a');
+        link.download = `专注分析_${formatDate(new Date())}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('📤 图表已导出'); } catch (e) { showToast('⚠️ 导出失败'); }
+    });
+
+    // 时段
+    function renderHourly() {
+      const monthInput = document.getElementById('hourlyMonth');
+      let monthStr = monthInput.value;
+      if (!monthStr) { const now = new Date();
+        monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        monthInput.value = monthStr; }
+      const [year, month] = monthStr.split('-').map(Number);
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0);
+      end.setHours(23, 59, 59, 999);
+      const records = getRecordsInRange(start, end);
+      const hourly = getHourlyDistribution(records);
+      const maxVal = Math.max(...hourly, 1);
+      const container = document.getElementById('hourlyBars');
+      container.innerHTML = hourly.map((val, i) => {
+        const pct = (val / maxVal * 100).toFixed(1);
+        const label = `${String(i).padStart(2,'0')}:00`;
+        return `<div class="hour-bar"><span class="hour-label">${label}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div><span class="bar-value">${formatDuration(val)}</span></div>`;
+      }).join('');
+      let bestHour = -1,
+        bestVal = 0;
+      hourly.forEach((v, i) => { if (v > bestVal) { bestVal = v;
+          bestHour = i; } });
+      const bestDisplay = document.getElementById('bestHourDisplay');
+      if (bestHour >= 0 && bestVal > 0) bestDisplay.innerHTML =
+        `🕐 ${String(bestHour).padStart(2,'0')}:00 - ${String(bestHour+1).padStart(2,'0')}:00 &nbsp; (${formatDuration(bestVal)})`;
+      else bestDisplay.textContent = '暂无数据';
+      document.getElementById('hourlyTotalSessions').textContent = `${records.length} 次`;
+    }
+
+    document.getElementById('hourlyRefreshBtn').addEventListener('click', renderHourly);
+
+    // 分类管理
+    function renderCategories() {
+      const container = document.getElementById('categoryList');
+      const countEl = document.getElementById('categoryCount');
+      countEl.textContent = `${STATE.categories.length} 个`;
+      if (!STATE.categories.length) {
+        container.innerHTML = `<div class="empty-state" style="padding:12px 0;">暂无分类，请添加</div>`;
+        return;
+      }
+      container.innerHTML = STATE.categories.map(cat => `
+              <div class="category-item" data-id="${cat.id}">
+                <div class="color-preview" style="background:${cat.color};"></div>
+                <span class="cat-name">${cat.name}</span>
+                <div class="cat-aliases">
+                  <span style="font-size:12px;">🗣️</span>
+                  <input type="text" class="cat-alias-input" data-id="${cat.id}" value="${cat.aliases || ''}" placeholder="语音别名" />
+                </div>
+                <div class="cat-keywords">
+                  <span style="font-size:12px;">🔑</span>
+                  <input type="text" class="cat-keyword-input" data-id="${cat.id}" value="${cat.keywords || ''}" placeholder="关键词" />
+                </div>
+                <div class="cat-actions">
+                  <input type="color" value="${cat.color}" class="cat-color-picker" data-id="${cat.id}" />
+                  <button class="btn btn-sm btn-danger cat-delete" data-id="${cat.id}">🗑️</button>
+                </div>
+              </div>
+            `).join('');
+
+      document.querySelectorAll('.cat-color-picker').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const id = e.target.dataset.id;
+          const color = e.target.value;
+          if (updateCategoryColor(id, color)) {
+            const preview = e.target.closest('.category-item').querySelector('.color-preview');
+            if (preview) preview.style.background = color;
+            renderTaskButtons();
+            if (document.getElementById('page-timer').classList.contains('active')) renderTodayRecords();
+            showToast('🎨 颜色已更新');
+          }
+        });
+      });
+
+      document.querySelectorAll('.cat-alias-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const id = e.target.dataset.id;
+          const val = e.target.value;
+          if (updateCategoryAliases(id, val)) {
+            showToast('🗣️ 别名已更新');
+          }
+        });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+      });
+
+      document.querySelectorAll('.cat-keyword-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const id = e.target.dataset.id;
+          const val = e.target.value;
+          if (updateCategoryKeywords(id, val)) {
+            showToast('🔑 关键词已更新');
+          }
+        });
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+      });
+
+      document.querySelectorAll('.cat-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          if (confirm('确定删除此分类吗？已存在的记录不受影响。')) {
+            if (deleteCategory(id)) {
+              renderCategories();
+              renderTaskButtons();
+              if (document.getElementById('page-timer').classList.contains('active')) renderTodayRecords();
+              if (document.getElementById('page-overview').classList.contains('active')) renderOverview();
+              if (document.getElementById('page-pie').classList.contains('active')) renderPie();
+              showToast('✅ 已删除分类');
+            }
+          }
+        });
+      });
+    }
+
+    document.getElementById('addCategoryBtn').addEventListener('click', () => {
+      const nameInput = document.getElementById('newCatName');
+      const colorInput = document.getElementById('newCatColor');
+      const name = nameInput.value.trim();
+      const color = colorInput.value;
+      if (!name) { showToast('⚠️ 请输入分类名称'); return; }
+      if (addCategory(name, color, '', '')) {
+        nameInput.value = '';
+        colorInput.value = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+        renderCategories();
+        renderTaskButtons();
+        if (document.getElementById('page-timer').classList.contains('active')) renderTodayRecords();
+        if (document.getElementById('page-overview').classList.contains('active')) renderOverview();
+        if (document.getElementById('page-pie').classList.contains('active')) renderPie();
+        showToast(`✅ 已添加分类：${name}`);
+      }
+    });
+    document.getElementById('newCatName').addEventListener('keydown', (e) => { if (e.key === 'Enter') document
+        .getElementById('addCategoryBtn').click(); });
+
+    // ----- 设置、导入导出、主题切换、自定义主题色 -----
+    document.getElementById('settingsBtn').addEventListener('click', () => {
+      document.getElementById('settingsModal').classList.add('show');
+      document.getElementById('dailyGoalInput').value = STATE.settings.dailyGoal || 120;
+      document.getElementById('totalGoalInput').value = STATE.settings.totalGoal || 100;
+      document.getElementById('focusDurationInput').value = STATE.settings.focusDuration || 25;
+      document.getElementById('breakDurationInput').value = STATE.settings.breakDuration || 5;
+      document.getElementById('themeColorPicker').value = STATE.themeColor || '#FF6B6B';
+    });
+    document.getElementById('settingsClose').addEventListener('click', () => {
+      document.getElementById('settingsModal').classList.remove('show');
+    });
+    document.getElementById('settingsModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) document.getElementById('settingsModal').classList.remove('show');
+    });
+
+    document.getElementById('dailyGoalInput').addEventListener('change', (e) => {
+      STATE.settings.dailyGoal = parseInt(e.target.value) || 120;
+      saveSettings();
+      renderOverview();
+      showToast('✅ 每日目标已更新');
+    });
+
+    document.getElementById('totalGoalInput').addEventListener('change', (e) => {
+      STATE.settings.totalGoal = parseInt(e.target.value) || 100;
+      saveSettings();
+      renderOverview();
+      showToast('✅ 累计目标已更新');
+    });
+
+    document.getElementById('focusDurationInput').addEventListener('change', (e) => {
+      STATE.settings.focusDuration = parseInt(e.target.value) || 25;
+      focusDurationInput.value = STATE.settings.focusDuration;
+      saveSettings();
+      showToast('✅ 专注时长已更新');
+    });
+
+    document.getElementById('breakDurationInput').addEventListener('change', (e) => {
+      STATE.settings.breakDuration = parseInt(e.target.value) || 5;
+      breakDurationInput.value = STATE.settings.breakDuration;
+      saveSettings();
+      showToast('✅ 休息时长已更新');
+    });
+
+    // 自定义主题色
+    function applyThemeColor(color) {
+      document.documentElement.style.setProperty('--primary', color);
+      document.documentElement.style.setProperty('--ring-color', color);
+      // 暗色计算
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      const darkR = Math.max(0, r - 30);
+      const darkG = Math.max(0, g - 30);
+      const darkB = Math.max(0, b - 30);
+      document.documentElement.style.setProperty('--primary-dark', `#${darkR.toString(16).padStart(2,'0')}${darkG.toString(16).padStart(2,'0')}${darkB.toString(16).padStart(2,'0')}`);
+      STATE.themeColor = color;
+      saveThemeColor(color);
+    }
+
+    document.getElementById('themeColorPicker').addEventListener('input', (e) => {
+      const color = e.target.value;
+      applyThemeColor(color);
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const data = {
+        categories: STATE.categories,
+        records: STATE.records,
+        settings: STATE.settings,
+        achievements: unlockedAchievements,
+        themeColor: STATE.themeColor,
+        version: '1.0'
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.download = `番茄全能数据_${formatDate(new Date())}.json`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      URL.revokeObjectURL(link.href);
+      showToast('📤 数据已导出');
+    });
+
+    document.getElementById('importDataBtn').addEventListener('click', () => {
+      document.getElementById('importFileInput').click();
+    });
+    document.getElementById('importFileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.categories) {
+            STATE.categories = data.categories;
+            saveCategories();
+            renderCategories();
+            renderTaskButtons();
+          }
+          if (data.records) {
+            STATE.records = data.records;
+            saveRecords();
+            renderTodayRecords();
+            renderOverview();
+            renderDaily();
+            renderPie();
+            renderHourly();
+          }
+          if (data.settings) {
+            STATE.settings = { ...STATE.settings, ...data.settings };
+            saveSettings();
+            focusDurationInput.value = STATE.settings.focusDuration;
+            breakDurationInput.value = STATE.settings.breakDuration;
+          }
+          if (data.achievements) {
+            unlockedAchievements = data.achievements;
+            saveAchievements();
+            renderBadges();
+          }
+          if (data.themeColor) {
+            STATE.themeColor = data.themeColor;
+            applyThemeColor(data.themeColor);
+            document.getElementById('themeColorPicker').value = data.themeColor;
+          }
+          showToast('✅ 数据导入成功！');
+        } catch (err) {
+          showToast('⚠️ 导入失败，文件格式错误');
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    document.getElementById('clearDataBtn').addEventListener('click', () => {
+      if (confirm('⚠️ 确定要清除所有数据吗？此操作不可恢复！')) {
+        if (confirm('再次确认：清除所有记录、分类、设置和成就？')) {
+          STATE.records = [];
+          STATE.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+          STATE._catIdCounter = 100;
+          unlockedAchievements = [];
+          STATE.settings = { dailyGoal: 120, focusDuration: 25, breakDuration: 5, totalGoal: 100 };
+          STATE.themeColor = '#FF6B6B';
+          saveCategories();
+          saveRecords();
+          saveSettings();
+          saveAchievements();
+          saveThemeColor('#FF6B6B');
+          applyThemeColor('#FF6B6B');
+          document.getElementById('themeColorPicker').value = '#FF6B6B';
+          renderCategories();
+          renderTaskButtons();
+          renderTodayRecords();
+          renderOverview();
+          renderDaily();
+          renderPie();
+          renderHourly();
+          renderBadges();
+          focusDurationInput.value = 25;
+          breakDurationInput.value = 5;
+          showToast('🗑️ 所有数据已清除');
+        }
+      }
+    });
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      STATE.theme = next;
+      document.getElementById('themeToggle').textContent = next === 'dark' ? '☀️' : '🌙';
+      saveTheme();
+    }
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+    // 快捷键提示
+    document.getElementById('shortcutsToggle').addEventListener('click', () => {
+      document.getElementById('shortcutsHint').classList.toggle('show');
+    });
+    document.getElementById('shortcutsClose').addEventListener('click', () => {
+      document.getElementById('shortcutsHint').classList.remove('show');
+    });
+
+    // ----- 初始化 -----
+    function init() {
+      loadCategories();
+      loadRecords();
+      loadSettings();
+      loadTheme();
+      loadThemeColor();
+      loadAchievements();
+
+      STATE.selectedDate = getToday();
+      document.getElementById('headerDate').textContent = formatDate(new Date());
+
+      focusDurationInput.value = STATE.settings.focusDuration;
+      breakDurationInput.value = STATE.settings.breakDuration;
+      document.getElementById('dailyGoalTarget').textContent = STATE.settings.dailyGoal || 120;
+      document.getElementById('totalGoalInput').value = STATE.settings.totalGoal || 100;
+
+      renderTaskButtons();
+      renderTodayRecords();
+      renderOverview();
+      renderDaily();
+      renderPie();
+      renderHourly();
+      renderCategories();
+      renderBadges();
+
+      updateButtons();
+      updateBreathLight(null);
+      updateBackgroundState('idle');
+
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
+      // 自动刷新
+      setInterval(() => {
+        if (!document.hidden) {
+          const activePage = document.querySelector('.page.active');
+          if (activePage) {
+            const id = activePage.id;
+            if (id === 'page-timer') renderTodayRecords();
+            else if (id === 'page-overview') renderOverview();
+            else if (id === 'page-daily') renderDaily();
+            else if (id === 'page-pie') renderPie();
+            else if (id === 'page-hourly') renderHourly();
+            else if (id === 'page-categories') renderCategories();
+          }
+        }
+      }, 10000);
+
+      console.log('🍅 番茄全能版已启动 — 毛玻璃动感设计，所有功能完整！');
+    }
+
+    init();
+  </script>
+</body>
+</html>
